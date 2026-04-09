@@ -5,6 +5,7 @@ import { navCommand } from "../src/commands/nav.js";
 import { speakCommand } from "../src/commands/speak.js";
 import { auditCommand } from "../src/commands/audit.js";
 import { screenshotCommand } from "../src/commands/screenshot.js";
+import { startRepl } from "../src/repl.js";
 
 program
   .name("screenreader")
@@ -17,4 +18,14 @@ program.addCommand(speakCommand());
 program.addCommand(auditCommand());
 program.addCommand(screenshotCommand());
 
-program.parse();
+program
+  .command("repl")
+  .description("Start interactive REPL session")
+  .action(startRepl);
+
+// Default to REPL when no command given
+if (process.argv.length <= 2) {
+  startRepl();
+} else {
+  program.parse();
+}
