@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { program } from "commander";
 import { pageCommand } from "../src/commands/page.js";
+import { navCommand } from "../src/commands/nav.js";
 
 program
   .name("screenreader")
@@ -8,5 +9,6 @@ program
   .version("0.1.0");
 
 program.addCommand(pageCommand());
+program.addCommand(navCommand());
 
 program.parse();
