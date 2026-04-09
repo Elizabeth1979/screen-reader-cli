@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-import { program } from "commander";
+import { program, Command } from "commander";
 import { pageCommand } from "../src/commands/page.js";
 import { navCommand } from "../src/commands/nav.js";
 import { speakCommand } from "../src/commands/speak.js";
 import { auditCommand } from "../src/commands/audit.js";
 import { screenshotCommand } from "../src/commands/screenshot.js";
 import { startRepl } from "../src/repl.js";
+import { startDaemon, stopDaemon, isDaemonRunning } from "../src/daemon.js";
 
 program
   .name("screenreader")
@@ -17,6 +18,38 @@ program.addCommand(navCommand());
 program.addCommand(speakCommand());
 program.addCommand(auditCommand());
 program.addCommand(screenshotCommand());
+
+const daemon = new Command("daemon").description("Manage the browser daemon");
+
+daemon
+  .command("start")
+  .description("Start the browser daemon")
+  .action(async () => {
+    const info = await startDaemon();
+    console.log(`Daemon started (pid: ${info.pid})`);
+    console.log(`WebSocket: ${info.wsEndpoint}`);
+  });
+
+daemon
+  .command("stop")
+  .description("Stop the browser daemon")
+  .action(async () => {
+    await stopDaemon();
+    console.log("Daemon stopped.");
+  });
+
+daemon
+  .command("status")
+  .description("Check daemon status")
+  .action(() => {
+    if (isDaemonRunning()) {
+      console.log("Daemon is running.");
+    } else {
+      console.log("Daemon is not running.");
+    }
+  });
+
+program.addCommand(daemon);
 
 program
   .command("repl")
