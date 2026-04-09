@@ -12,7 +12,7 @@ const VSR_BUNDLE_PATH = path.resolve(
 const VSR_BUNDLE = fs.readFileSync(VSR_BUNDLE_PATH, "utf-8");
 
 export async function createBridge(browser) {
-  const context = await browser.newContext();
+  const context = await browser.newContext({ bypassCSP: true });
   let page = null;
   let vsrStarted = false;
 
