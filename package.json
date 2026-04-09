@@ -1,0 +1,19 @@
+{
+  "name": "screen-reader-cli",
+  "version": "0.1.0",
+  "description": "Screen reader CLI powered by Virtual Screen Reader + Playwright",
+  "type": "module",
+  "bin": {
+    "screenreader": "./bin/cli.js"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@guidepup/virtual-screen-reader": "^0.25.0",
+    "commander": "^13.0.0",
+    "playwright": "^1.52.0"
+  },
+  "devDependencies": {},
+  "license": "MIT"
+}
