@@ -41,3 +41,12 @@ describe("nav commands", () => {
     );
   });
 });
+
+describe("speak commands", () => {
+  it("returns spoken phrase log after traversal", () => {
+    const output = run("speak", "log", "--url", FIXTURE, "--steps", "3", "--json");
+    const data = JSON.parse(output);
+    assert.ok(Array.isArray(data.log));
+    assert.ok(data.log.length >= 3, `expected >=3 entries, got ${data.log.length}`);
+  });
+});

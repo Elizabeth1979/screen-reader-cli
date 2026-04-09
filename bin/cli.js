@@ -2,6 +2,7 @@
 import { program } from "commander";
 import { pageCommand } from "../src/commands/page.js";
 import { navCommand } from "../src/commands/nav.js";
+import { speakCommand } from "../src/commands/speak.js";
 
 program
   .name("screenreader")
@@ -10,5 +11,6 @@ program
 
 program.addCommand(pageCommand());
 program.addCommand(navCommand());
+program.addCommand(speakCommand());
 
 program.parse();
