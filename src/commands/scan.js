@@ -33,33 +33,45 @@ export function scanCommand() {
 
         const results = await scan(page);
 
+        // Run AI analysis first (if requested) so it can be included in reports
+        let aiAnalysis = null;
+        let aiMeta = null;
+        if (opts.ai) {
+          const { provider, model } = resolveProviderAndModel(opts.provider, opts.model);
+          aiMeta = { provider, model };
+          if (!opts.visual) console.log(`\nAnalyzing with ${provider} (${model})...\n`);
+          else process.stderr.write(`Analyzing with ${provider} (${model})...\n`);
+          try {
+            aiAnalysis = await analyzeWithAI(results, { provider, model });
+          } catch (err) {
+            console.error(`AI analysis failed: ${err.message}`);
+          }
+        }
+
         if (opts.json) {
           const { screenshot, ...jsonSafe } = results;
-          console.log(JSON.stringify(jsonSafe, null, 2));
+          const output = aiAnalysis ? { ...jsonSafe, aiAnalysis } : jsonSafe;
+          console.log(JSON.stringify(output, null, 2));
         } else if (opts.visual) {
-          const html = generateScanReport(results);
+          const html = generateScanReport(results, { aiAnalysis, aiMeta });
           const filePath = openReport(html);
           console.log(`Report opened: ${filePath}`);
         } else {
           printTextReport(results);
-        }
-
-        if (opts.ai) {
-          const { provider, model } = resolveProviderAndModel(opts.provider, opts.model);
-          console.log(`\nAnalyzing with ${provider} (${model})...\n`);
-          try {
-            const analysis = await analyzeWithAI(results, { provider, model });
-            if (opts.json) {
-              const { screenshot, ...jsonSafe } = results;
-              // Re-output JSON with analysis included
-              console.log(JSON.stringify({ ...jsonSafe, aiAnalysis: analysis }, null, 2));
-            } else {
-              console.log("--- AI Analysis ---\n");
-              console.log(analysis);
-              console.log();
+          if (aiAnalysis) {
+            console.log("\n--- AI Analysis ---\n");
+            if (aiAnalysis.summary) console.log(`  ${aiAnalysis.summary}\n`);
+            if (aiAnalysis.score != null) console.log(`  Score: ${aiAnalysis.score}/10\n`);
+            if (aiAnalysis.fixes?.length) {
+              for (const f of aiAnalysis.fixes) {
+                const v = results.violations[f.index];
+                if (!v) continue;
+                console.log(`  [${v.severity}] ${v.message}`);
+                if (f.fix) console.log(`    Fix: ${f.fix}`);
+                if (f.impact) console.log(`    Impact: ${f.impact}`);
+                console.log();
+              }
             }
-          } catch (err) {
-            console.error(`AI analysis failed: ${err.message}`);
           }
         }
 

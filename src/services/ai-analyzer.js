@@ -115,55 +115,32 @@ export function resolveProviderAndModel(providerFlag, modelFlag) {
 function buildPrompt(scanResults) {
   const { url, title, violations, headings, stats } = scanResults;
 
-  const violationSummary = violations
+  const violationList = violations
     .map(
-      (v) =>
-        `- [${v.severity}] ${v.message}${v.element?.selector ? ` (${v.element.selector})` : ""}${v.wcag ? ` — WCAG ${v.wcag}` : ""}`
+      (v, i) =>
+        `${i}: [${v.severity}] ${v.message}${v.element?.selector ? ` (${v.element.selector})` : ""}${v.wcag ? ` — WCAG ${v.wcag}` : ""}`
     )
     .join("\n");
 
-  const headingSummary = headings
-    .map((h) => `${"  ".repeat(h.level - 1)}h${h.level}: ${h.text.slice(0, 60)}`)
-    .join("\n");
+  return `You are an accessibility expert. Analyze these scan results and return ONLY valid JSON — no markdown, no explanation, no code fences.
 
-  return `You are an accessibility expert. Analyze these screen reader scan results and provide actionable guidance.
+## Page: ${title} (${url})
+DOM elements: ${stats.domElements} | Headings: ${stats.headingCount} | Landmarks: ${stats.landmarkCount}
 
-## Page
-- URL: ${url}
-- Title: ${title}
-- DOM elements: ${stats.domElements}
-- Headings: ${stats.headingCount}
-- Landmarks: ${stats.landmarkCount}
+## Violations (${stats.violationCount} total: ${stats.critical} critical, ${stats.moderate} moderate, ${stats.minor} minor)
 
-## Violations Found (${stats.violationCount} total: ${stats.critical} critical, ${stats.moderate} moderate, ${stats.minor} minor)
-
-${violationSummary || "None"}
+${violationList || "None"}
 
 ## Heading Structure
+${headings.map((h) => `${"  ".repeat(h.level - 1)}h${h.level}: ${h.text.slice(0, 60)}`).join("\n") || "No headings"}
 
-${headingSummary || "No headings found"}
+## Required JSON format
 
-## Instructions
+Return EXACTLY this structure. "fixes" array must have one entry per violation above, matched by index. Each "fix" must be 1-2 sentences max — a concrete action the developer should take. "impact" must be 1 sentence explaining why a screen reader user is affected. "summary" is 2-3 sentences total. "score" is 1-10.
 
-Provide your analysis in this format:
+{"summary":"...","score":7,"fixes":[{"index":0,"fix":"...","impact":"..."},{"index":1,"fix":"...","impact":"..."}]}
 
-### Summary
-A 2-3 sentence overview of the page's screen reader accessibility.
-
-### Priority Fixes
-For each issue (most critical first):
-1. **What's wrong** — plain language, no jargon
-2. **Who it affects** — how this impacts screen reader users specifically
-3. **How to fix it** — concrete code example or change
-4. **WCAG reference** — which success criterion applies
-
-### What's Working Well
-Note anything positive about the page's accessibility (good heading structure, proper landmarks, etc.)
-
-### Screen Reader Experience Score
-Rate 1-10 based on how usable this page would be for a screen reader user, with a brief justification.
-
-Keep the tone practical and educational — this should help developers understand *why* each fix matters for real screen reader users, not just check compliance boxes.`;
+CRITICAL: Return raw JSON only. No markdown. No \`\`\`json. No explanation before or after.`;
 }
 
 // ── HTTP calls per provider ─────────────────────────────────────────────────
@@ -178,7 +155,7 @@ async function callAnthropic(apiKey, model, prompt) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 4096,
+      max_tokens: 8192,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -202,7 +179,7 @@ async function callOpenAICompatible(url, apiKey, model, prompt) {
     body: JSON.stringify({
       model,
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 4096,
+      max_tokens: 8192,
     }),
   });
 
@@ -230,9 +207,140 @@ export async function analyzeWithAI(scanResults, { provider, model }) {
 
   const prompt = buildPrompt(scanResults);
 
-  if (provider === "anthropic") {
-    return callAnthropic(apiKey, model, prompt);
+  const raw =
+    provider === "anthropic"
+      ? await callAnthropic(apiKey, model, prompt)
+      : await callOpenAICompatible(cfg.url, apiKey, model, prompt);
+
+  return parseAIResponse(raw, scanResults.violations);
+}
+
+/**
+ * Attempt to repair malformed JSON from LLM output:
+ * - Escapes unescaped double quotes inside string values
+ * - Closes truncated JSON (missing closing braces/brackets)
+ */
+function repairJSON(raw) {
+  // State machine: rebuild JSON, escaping interior quotes in strings
+  let out = "";
+  let inStr = false;
+  let esc = false;
+  const stack = []; // track expected closers
+
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+
+    if (esc) {
+      out += ch;
+      esc = false;
+      continue;
+    }
+
+    if (ch === "\\") {
+      out += ch;
+      esc = true;
+      continue;
+    }
+
+    if (ch === '"') {
+      if (!inStr) {
+        // Opening a string
+        inStr = true;
+        out += ch;
+      } else {
+        // Is this the real end of the string, or an unescaped interior quote?
+        // Look ahead: if next non-whitespace is : , } ] or end-of-input, it's a real close
+        let j = i + 1;
+        while (j < raw.length && (raw[j] === " " || raw[j] === "\n" || raw[j] === "\r" || raw[j] === "\t")) j++;
+        const next = raw[j];
+        if (!next || next === ":" || next === "," || next === "}" || next === "]") {
+          inStr = false;
+          out += ch;
+        } else {
+          // Interior quote — escape it
+          out += '\\"';
+        }
+      }
+      continue;
+    }
+
+    if (!inStr) {
+      if (ch === "{") stack.push("}");
+      else if (ch === "[") stack.push("]");
+      else if (ch === "}" || ch === "]") stack.pop();
+    }
+
+    out += ch;
   }
 
-  return callOpenAICompatible(cfg.url, apiKey, model, prompt);
+  // Close any remaining open structures (truncated response)
+  if (inStr) out += '"'; // close dangling string
+  // Trim trailing partial key-value
+  out = out.replace(/,\s*"[^"]*"?\s*:?\s*"?[^"{}[\]]*$/, "");
+  out += stack.reverse().join("");
+
+  return out;
+}
+
+/**
+ * Parse the AI's JSON response and merge fixes into violation objects.
+ * Returns { summary, score, violations } where each violation gets
+ * an `aiFix` and `aiImpact` field.
+ */
+function parseAIResponse(raw, violations) {
+  let parsed;
+  const trimmed = raw.trim();
+
+  // Try 1: parse raw directly
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    // Try 2: strip markdown code fences
+    const fenceMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+    if (fenceMatch) {
+      try { parsed = JSON.parse(fenceMatch[1].trim()); } catch {}
+    }
+    // Try 3: find the outermost JSON object by brace-counting
+    if (!parsed) {
+      const start = trimmed.indexOf("{");
+      if (start !== -1) {
+        let depth = 0;
+        let inString = false;
+        let escape = false;
+        for (let i = start; i < trimmed.length; i++) {
+          const ch = trimmed[i];
+          if (escape) { escape = false; continue; }
+          if (ch === "\\") { escape = true; continue; }
+          if (ch === '"') { inString = !inString; continue; }
+          if (inString) continue;
+          if (ch === "{") depth++;
+          if (ch === "}") { depth--; if (depth === 0) { try { parsed = JSON.parse(trimmed.slice(start, i + 1)); } catch {} break; } }
+        }
+      }
+    }
+    // Try 4: repair truncated JSON and fix unescaped quotes
+    if (!parsed) {
+      const start = trimmed.indexOf("{");
+      if (start !== -1) {
+        let candidate = repairJSON(trimmed.slice(start));
+        try { parsed = JSON.parse(candidate); } catch {}
+      }
+    }
+    // Fallback: return raw text as summary, no per-issue fixes
+    if (!parsed) {
+      return { summary: raw.slice(0, 300), score: null, fixes: [] };
+    }
+  }
+
+  const fixes = (parsed.fixes || []).map((f) => ({
+    index: f.index,
+    fix: f.fix || "",
+    impact: f.impact || "",
+  }));
+
+  return {
+    summary: parsed.summary || "",
+    score: typeof parsed.score === "number" ? parsed.score : null,
+    fixes,
+  };
 }
