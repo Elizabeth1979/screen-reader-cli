@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head><title>Page With Violations</title></head>
+<body>
+  <!-- No main landmark -->
+  <h1>Welcome</h1>
+  <h3>Skipped heading level</h3>
+  <img src="photo.jpg"><!-- missing alt -->
+  <button><svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button><!-- icon button no name -->
+  <a href="/search"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg></a><!-- icon link no name -->
+  <input type="text" name="email"><!-- no label -->
+  <div aria-hidden="true"><button>Hidden but focusable</button></div>
+</body>
+</html>
