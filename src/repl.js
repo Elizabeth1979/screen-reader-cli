@@ -1,6 +1,7 @@
 import readline from "node:readline";
 import { startDaemon, connectBrowser, stopDaemon } from "./daemon.js";
 import { createBridge } from "./bridge.js";
+import { createLiveBridge, detectReader } from "./live-bridge.js";
 
 const HELP = `
 Commands:
@@ -18,6 +19,17 @@ Commands:
   screenshot [path]     Screenshot current element
   screenshot --full [p] Screenshot full page
   audit                 Full page traversal
+
+  live start [reader]   Start a real screen reader (voiceover/nvda, auto-detects)
+  live stop             Stop the live screen reader
+  live next             Move to next element (live reader)
+  live previous         Move to previous element (live reader)
+  live interact         Interact with current element (live reader)
+  live escape           Stop interacting (live reader)
+  live heading          Move to next heading (live reader)
+  live last             Last spoken phrase (live reader)
+  live log              Full spoken phrase log (live reader)
+
   help                  Show this help
   quit                  Exit
 `.trim();
@@ -33,6 +45,7 @@ export async function startRepl() {
   await startDaemon();
   const browser = await connectBrowser();
   const bridge = await createBridge(browser);
+  let liveBridge = null;
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -52,6 +65,7 @@ export async function startRepl() {
       if (!group || group === "") {
         // empty line
       } else if (group === "quit" || group === "exit") {
+        if (liveBridge) await liveBridge.stop().catch(() => {});
         await bridge.close();
         await browser.close();
         await stopDaemon();
@@ -106,6 +120,42 @@ export async function startRepl() {
           if (phrase === "end of document") break;
         }
         console.log(`\n(${phrases.length} elements traversed)`);
+      } else if (group === "live" && cmd === "start") {
+        const readerName = rest[0] || undefined;
+        liveBridge = await createLiveBridge(readerName);
+        await liveBridge.start();
+        const label = liveBridge.readerName === "voiceover" ? "VoiceOver" : "NVDA";
+        console.log(`${label} started. Use "live next", "live previous", "live log", etc.`);
+      } else if (group === "live" && cmd === "stop") {
+        if (liveBridge) {
+          await liveBridge.stop();
+          const label = liveBridge.readerName === "voiceover" ? "VoiceOver" : "NVDA";
+          console.log(`${label} stopped.`);
+          liveBridge = null;
+        } else {
+          console.log("No live screen reader is running.");
+        }
+      } else if (group === "live" && liveBridge) {
+        if (cmd === "next") {
+          console.log(await liveBridge.next());
+        } else if (cmd === "previous") {
+          console.log(await liveBridge.previous());
+        } else if (cmd === "interact") {
+          console.log(await liveBridge.interact());
+        } else if (cmd === "escape") {
+          console.log(await liveBridge.stopInteracting());
+        } else if (cmd === "heading") {
+          console.log(await liveBridge.perform("moveToNextHeading"));
+        } else if (cmd === "last") {
+          console.log(await liveBridge.lastSpokenPhrase());
+        } else if (cmd === "log") {
+          const log = await liveBridge.spokenPhraseLog();
+          log.forEach((p, i) => console.log(`${i + 1}. ${p}`));
+        } else {
+          console.log(`Unknown live command: ${cmd}. Try: next, previous, interact, escape, heading, last, log`);
+        }
+      } else if (group === "live") {
+        console.log('No live screen reader running. Use "live start" first.');
       } else {
         console.log(`Unknown command: ${line.trim()}. Type "help" for commands.`);
       }
@@ -117,6 +167,7 @@ export async function startRepl() {
   });
 
   rl.on("close", async () => {
+    if (liveBridge) await liveBridge.stop().catch(() => {});
     await bridge.close();
     await browser.close();
     await stopDaemon();

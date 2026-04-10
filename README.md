@@ -1,16 +1,17 @@
 # screen-reader-cli
 
-A command-line screen reader for any webpage. Powered by [Virtual Screen Reader](https://github.com/guidepup/virtual-screen-reader) + [Playwright](https://playwright.dev/).
+A command-line screen reader testing tool. Scan any page for accessibility violations, generate regression tests, or drive a **real screen reader** (VoiceOver/NVDA) programmatically.
 
-Point it at any URL or local HTML file and hear what a screen reader would announce — headings, landmarks, links, ARIA roles, all of it. No browser extensions, no manual setup.
+Powered by [Virtual Screen Reader](https://github.com/guidepup/virtual-screen-reader), [Guidepup](https://github.com/guidepup/guidepup), [axe-core](https://github.com/dequelabs/axe-core), and [Playwright](https://playwright.dev/).
 
 ## What it does
 
-- **Audits** any page with a full screen reader traversal
-- **Navigates** by element, heading, landmark, link, or form
-- **Searches** spoken output for specific text
-- **Screenshots** the current element or full page
-- **Works offline** — no CDN dependencies, everything runs locally
+- **Scans** pages for screen-reader-specific violations (heading skips, missing alt text, missing accessible names, hidden focusable elements, missing landmarks, missing form labels) + axe-core rules
+- **Drives real screen readers** — VoiceOver on Mac, NVDA on Windows — to hear what gets announced
+- **Generates regression tests** — Playwright Test or Vitest files from scan results
+- **Visual reports** — HTML reports with issue tables, heading structure, DOM reading order, and screenshots
+- **Navigates** by element, heading, landmark, link, or form (virtual mode)
+- **Works offline** — everything runs locally, no CDN dependencies
 
 ## Install
 
@@ -23,26 +24,97 @@ npx playwright install chromium
 npm link
 ```
 
+### Live mode setup (optional — for real screen reader testing)
+
+To use the `live` command with a real screen reader, run the one-time setup:
+
+```bash
+npx @guidepup/setup
+```
+
+This grants the OS permissions needed for screen reader automation:
+- **macOS**: Enables VoiceOver's AppleScript API and adds your terminal to Accessibility permissions
+- **Windows**: Configures NVDA for programmatic control
+
+You only need to do this once per machine. The `scan` command (virtual mode) works without this step.
+
 ## Quick start
 
 ```bash
-# Full accessibility audit
-screenreader audit https://example.com --summary --json
+# Scan a page for accessibility issues (the main command)
+screenreader scan https://example.com
 
-# Navigate headings
-screenreader nav heading --url https://example.com --json
+# JSON output (for CI pipelines)
+screenreader scan https://example.com --json
 
-# Find specific content
-screenreader speak find "pricing" --url https://example.com --json
+# Visual HTML report (opens in browser)
+screenreader scan https://example.com --visual
 
-# Screenshot
-screenreader screenshot --url https://example.com --full --output page.png
+# Generate a Playwright regression test file
+screenreader scan https://example.com --test
+
+# Generate Vitest stubs instead
+screenreader scan https://example.com --test --framework vitest
+
+# Drive the real screen reader on a page
+screenreader live read https://example.com
 
 # Interactive REPL
 screenreader
 ```
 
 ## Commands
+
+### `scan` — The main command
+
+Scans a page for screen-reader-specific violations using custom DOM checks + axe-core, then outputs a merged, deduplicated report.
+
+```bash
+screenreader scan <url>                                    # Text report in terminal
+screenreader scan <url> --json                             # JSON (for CI)
+screenreader scan <url> --visual                           # HTML report opens in browser
+screenreader scan <url> --test                             # Generate Playwright test file
+screenreader scan <url> --test --framework vitest          # Generate Vitest stubs
+screenreader scan <url> --test --output my-tests.test.js   # Custom output path
+```
+
+**What it checks:**
+- Heading hierarchy (no skips, e.g. h1 → h3)
+- Missing alt text on images
+- Missing accessible names on buttons and links (including icon-only buttons/links)
+- Missing form labels
+- Missing main landmark
+- Focusable elements inside `aria-hidden="true"`
+- All axe-core WCAG 2 AA rules
+
+Works with URLs and local files:
+```bash
+screenreader scan test/fixtures/violations.html
+```
+
+### `live` — Real screen reader testing
+
+Drives **VoiceOver** (macOS) or **NVDA** (Windows) on a real page. Auto-detects your OS, or override with `--reader`.
+
+```bash
+# Read the full page — logs every announcement
+screenreader live read <url>
+screenreader live read <url> --json
+screenreader live read <url> --steps 50        # Limit traversal steps
+
+# Test mode — traverses and detects issues (empty announcements, focus traps)
+screenreader live test <url>
+screenreader live test <url> --json
+
+# Interactive — opens browser + screen reader, keeps it running
+screenreader live open <url>
+
+# Force a specific reader
+screenreader live read <url> --reader nvda
+screenreader live read <url> --reader voiceover
+```
+
+Requires one-time setup: `npx @guidepup/setup` (see Install section above).
 
 ### `page` — Page navigation
 
@@ -103,7 +175,7 @@ screenreader        # Enters REPL (default when no command given)
 screenreader repl   # Same thing, explicit
 ```
 
-In the REPL, navigation state persists across commands:
+In the REPL, navigation state persists across commands. You can also start a real screen reader session:
 
 ```
 screenreader> page open https://example.com
@@ -114,6 +186,15 @@ screenreader> nav next
 More information...
 screenreader> screenshot element.png
 Screenshot saved: element.png
+
+screenreader> live start
+VoiceOver started. Use "live next", "live previous", "live log", etc.
+screenreader> live next
+Example Domain, heading level 1
+screenreader> live log
+1. Example Domain, heading level 1
+screenreader> live stop
+VoiceOver stopped.
 screenreader> quit
 ```
 
@@ -143,13 +224,22 @@ screenreader audit https://example.com --summary --json
 
 ## How it works
 
+### Virtual mode (`scan`, `page`, `nav`, `audit`, etc.)
+
 1. **Playwright** launches a headless Chromium browser
-2. **Virtual Screen Reader** is injected into the page context
-3. CLI commands map to VSR API calls (`next()`, `previous()`, `perform()`)
-4. Results (spoken phrases, node info) are returned to the terminal
-5. **Daemon mode** keeps the browser alive between commands for speed
+2. **Virtual Screen Reader** is injected into the page context for DOM traversal
+3. **Custom violation checks** run against the DOM (heading hierarchy, accessible names, etc.)
+4. **axe-core** is injected for comprehensive WCAG 2 AA rule coverage
+5. Results are merged and deduplicated
 
 The Virtual Screen Reader implements the same [W3C accessibility specifications](https://www.w3.org/TR/wai-aria-1.2/) that real screen readers follow — ACCNAME, CORE-AAM, HTML-AAM, WAI-ARIA 1.2, and more.
+
+### Live mode (`live`)
+
+1. **Playwright** launches a **visible** browser (screen readers need a real window)
+2. **Guidepup** starts VoiceOver (macOS) or NVDA (Windows)
+3. The screen reader traverses the page — you hear what it actually announces
+4. Results are captured via guidepup's API (`lastSpokenPhrase()`, `spokenPhraseLog()`)
 
 ## Use cases
 
@@ -161,11 +251,16 @@ The Virtual Screen Reader implements the same [W3C accessibility specifications]
 ## Testing
 
 ```bash
-# Unit + integration tests
-node --test test/daemon.test.js
-node --test test/bridge.test.js
-node --test test/commands.test.js
-node --test test/audit.test.js
+# Run all tests
+npm test
+
+# Individual suites
+node --test test/scan.test.js       # Scan command (13 tests)
+node --test test/live.test.js       # Live command (7 tests)
+node --test test/commands.test.js   # Virtual mode commands
+node --test test/bridge.test.js     # VSR bridge
+node --test test/audit.test.js      # Audit command
+node --test test/daemon.test.js     # Browser daemon
 
 # E2E tests (requires network)
 node --test test/e2e.test.js
@@ -173,7 +268,9 @@ node --test test/e2e.test.js
 
 ## Built with
 
+- [axe-core](https://github.com/dequelabs/axe-core) — Accessibility rule engine (WCAG 2 AA)
 - [@guidepup/virtual-screen-reader](https://github.com/guidepup/virtual-screen-reader) — Screen reader simulation engine
+- [@guidepup/guidepup](https://github.com/guidepup/guidepup) — Real screen reader driver (VoiceOver + NVDA)
 - [Playwright](https://playwright.dev/) — Browser automation
 - [Commander.js](https://github.com/tj/commander.js) — CLI framework
 

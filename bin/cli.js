@@ -5,6 +5,8 @@ import { navCommand } from "../src/commands/nav.js";
 import { speakCommand } from "../src/commands/speak.js";
 import { auditCommand } from "../src/commands/audit.js";
 import { screenshotCommand } from "../src/commands/screenshot.js";
+import { scanCommand } from "../src/commands/scan.js";
+import { liveCommand } from "../src/commands/live.js";
 import { startRepl } from "../src/repl.js";
 import { startDaemon, stopDaemon, isDaemonRunning } from "../src/daemon.js";
 
@@ -18,6 +20,8 @@ program.addCommand(navCommand());
 program.addCommand(speakCommand());
 program.addCommand(auditCommand());
 program.addCommand(screenshotCommand());
+program.addCommand(scanCommand());
+program.addCommand(liveCommand());
 
 const daemon = new Command("daemon").description("Manage the browser daemon");
 

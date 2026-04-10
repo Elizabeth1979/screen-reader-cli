@@ -10,10 +10,11 @@
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
+    "@guidepup/guidepup": "^0.24.1",
     "@guidepup/virtual-screen-reader": "^0.25.0",
+    "axe-core": "^4.11.2",
     "commander": "^13.0.0",
     "playwright": "^1.52.0"
   },
-  "devDependencies": {},
   "license": "MIT"
 }
