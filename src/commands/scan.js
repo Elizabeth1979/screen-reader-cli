@@ -6,6 +6,7 @@ import { scan } from "../services/scanner.js";
 import { generateScanReport } from "../report/scan-report.js";
 import { openReport } from "../report/open.js";
 import { generateTests } from "../services/test-generator.js";
+import { analyzeWithAI, resolveProviderAndModel } from "../services/ai-analyzer.js";
 
 export function scanCommand() {
   return new Command("scan")
@@ -16,6 +17,9 @@ export function scanCommand() {
     .option("--test", "Generate regression test file")
     .option("--framework <name>", "Test framework: playwright (default) or vitest", "playwright")
     .option("--output <path>", "Output path for generated test file")
+    .option("--ai", "Analyze results with AI (requires API key or local Ollama)")
+    .option("--provider <name>", "AI provider: anthropic, openai, gemini, ollama")
+    .option("--model <name>", "AI model (e.g. sonnet, gpt-4o, flash, llama3)")
     .action(async (url, opts) => {
       const browser = await chromium.launch({ headless: true });
       const context = await browser.newContext();
@@ -38,6 +42,25 @@ export function scanCommand() {
           console.log(`Report opened: ${filePath}`);
         } else {
           printTextReport(results);
+        }
+
+        if (opts.ai) {
+          const { provider, model } = resolveProviderAndModel(opts.provider, opts.model);
+          console.log(`\nAnalyzing with ${provider} (${model})...\n`);
+          try {
+            const analysis = await analyzeWithAI(results, { provider, model });
+            if (opts.json) {
+              const { screenshot, ...jsonSafe } = results;
+              // Re-output JSON with analysis included
+              console.log(JSON.stringify({ ...jsonSafe, aiAnalysis: analysis }, null, 2));
+            } else {
+              console.log("--- AI Analysis ---\n");
+              console.log(analysis);
+              console.log();
+            }
+          } catch (err) {
+            console.error(`AI analysis failed: ${err.message}`);
+          }
         }
 
         if (opts.test) {

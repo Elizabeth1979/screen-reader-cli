@@ -76,7 +76,24 @@ screenreader scan <url> --visual                           # HTML report opens i
 screenreader scan <url> --test                             # Generate Playwright test file
 screenreader scan <url> --test --framework vitest          # Generate Vitest stubs
 screenreader scan <url> --test --output my-tests.test.js   # Custom output path
+screenreader scan <url> --ai                               # AI analysis of results
+screenreader scan <url> --ai --model sonnet                # Use Claude Sonnet
+screenreader scan <url> --ai --model gpt-4o                # Use GPT-4o
+screenreader scan <url> --ai --provider ollama             # Use local model (free)
 ```
+
+#### AI analysis (`--ai`)
+
+Get plain-language explanations, prioritized fix suggestions with code examples, and a screen reader experience score. Supports multiple providers:
+
+| Provider | Flag | Models | API Key |
+|---|---|---|---|
+| Gemini | `--provider gemini` | `flash` (default), `pro` | `GEMINI_API_KEY` (free tier available) |
+| Anthropic | `--provider anthropic` | `haiku`, `sonnet` (default), `opus` | `ANTHROPIC_API_KEY` |
+| OpenAI | `--provider openai` | `gpt-4o-mini` (default), `gpt-4o`, `o3-mini` | `OPENAI_API_KEY` |
+| Ollama | `--provider ollama` | Any installed model | None (free, local) |
+
+Auto-detects provider from model name: `--model sonnet` → Anthropic, `--model gpt-4o` → OpenAI, `--model flash` → Gemini. Unknown models default to Ollama. If no provider or model is specified, picks the first available API key (priority: Gemini → Anthropic → OpenAI → Ollama).
 
 **What it checks:**
 - Heading hierarchy (no skips, e.g. h1 → h3)
