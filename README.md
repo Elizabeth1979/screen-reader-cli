@@ -33,6 +33,7 @@ npx @guidepup/setup
 ```
 
 This grants the OS permissions needed for screen reader automation:
+
 - **macOS**: Enables VoiceOver's AppleScript API and adds your terminal to Accessibility permissions
 - **Windows**: Configures NVDA for programmatic control
 
@@ -86,16 +87,17 @@ screenreader scan <url> --ai --provider ollama             # Use local model (fr
 
 Get plain-language explanations, prioritized fix suggestions with code examples, and a screen reader experience score. Supports multiple providers:
 
-| Provider | Flag | Models | API Key |
-|---|---|---|---|
-| Gemini | `--provider gemini` | `flash` (default), `pro` | `GEMINI_API_KEY` (free tier available) |
-| Anthropic | `--provider anthropic` | `haiku`, `sonnet` (default), `opus` | `ANTHROPIC_API_KEY` |
-| OpenAI | `--provider openai` | `gpt-4o-mini` (default), `gpt-4o`, `o3-mini` | `OPENAI_API_KEY` |
-| Ollama | `--provider ollama` | Any installed model | None (free, local) |
+| Provider  | Flag                   | Models                                       | API Key                                |
+| --------- | ---------------------- | -------------------------------------------- | -------------------------------------- |
+| Gemini    | `--provider gemini`    | `flash` (default), `pro`                     | `GEMINI_API_KEY` (free tier available) |
+| Anthropic | `--provider anthropic` | `haiku`, `sonnet` (default), `opus`          | `ANTHROPIC_API_KEY`                    |
+| OpenAI    | `--provider openai`    | `gpt-4o-mini` (default), `gpt-4o`, `o3-mini` | `OPENAI_API_KEY`                       |
+| Ollama    | `--provider ollama`    | Any installed model                          | None (free, local)                     |
 
 Auto-detects provider from model name: `--model sonnet` → Anthropic, `--model gpt-4o` → OpenAI, `--model flash` → Gemini. Unknown models default to Ollama. If no provider or model is specified, picks the first available API key (priority: Gemini → Anthropic → OpenAI → Ollama).
 
 **What it checks:**
+
 - Heading hierarchy (no skips, e.g. h1 → h3)
 - Missing alt text on images
 - Missing accessible names on buttons and links (including icon-only buttons/links)
@@ -105,6 +107,7 @@ Auto-detects provider from model name: `--model sonnet` → Anthropic, `--model 
 - All axe-core WCAG 2 AA rules
 
 Works with URLs and local files:
+
 ```bash
 screenreader scan test/fixtures/violations.html
 ```
@@ -264,6 +267,16 @@ The Virtual Screen Reader implements the same [W3C accessibility specifications]
 - **AI agents** — give agents structured, semantic understanding of web pages
 - **Developer workflows** — quickly check heading hierarchy, landmark structure, ARIA usage
 - **Automated QA** — validate accessibility in build pipelines with JSON output
+
+## Claude Code companion skill
+
+If you use [Claude Code](https://docs.claude.com/en/docs/claude-code), this repo ships a companion skill + slash command that lets Claude run audits on demand:
+
+```
+/sr-audit https://example.com
+```
+
+Claude runs `scan` + `audit` paired, saves text + JSON to disk, and surfaces the top issues in chat. See [`skills/claude-code/README.md`](skills/claude-code/README.md) for install instructions and what it does.
 
 ## Testing
 
