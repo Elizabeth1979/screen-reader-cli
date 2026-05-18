@@ -6,30 +6,84 @@ import { scan } from "../services/scanner.js";
 import { generateScanReport } from "../report/scan-report.js";
 import { openReport } from "../report/open.js";
 import { generateTests } from "../services/test-generator.js";
-import { analyzeWithAI, resolveProviderAndModel } from "../services/ai-analyzer.js";
+import {
+  analyzeWithAI,
+  resolveProviderAndModel,
+} from "../services/ai-analyzer.js";
 
 export function scanCommand() {
   return new Command("scan")
-    .description("Scan a page for screen reader issues (DOM order + violations + axe-core)")
+    .description(
+      "Scan a page for screen reader issues (DOM order + violations + axe-core)",
+    )
     .argument("<url>", "URL to scan")
     .option("--json", "Output as JSON")
     .option("--visual", "Open visual HTML report in browser")
     .option("--test", "Generate regression test file")
-    .option("--framework <name>", "Test framework: playwright (default) or vitest", "playwright")
+    .option(
+      "--framework <name>",
+      "Test framework: playwright (default) or vitest",
+      "playwright",
+    )
     .option("--output <path>", "Output path for generated test file")
-    .option("--ai", "Analyze results with AI (requires API key or local Ollama)")
-    .option("--provider <name>", "AI provider: anthropic, openai, gemini, ollama")
+    .option(
+      "--ai",
+      "Analyze results with AI (requires API key or local Ollama)",
+    )
+    .option(
+      "--provider <name>",
+      "AI provider: anthropic, openai, gemini, ollama",
+    )
     .option("--model <name>", "AI model (e.g. sonnet, gpt-4o, flash, llama3)")
+    .option(
+      "--open <selector>",
+      "Before scanning, click this selector to open an overlay (dropdown/menu/dialog). " +
+        "Many ARIA violations (aria-required-parent, aria-required-children, nested-interactive) " +
+        "only surface when the component is open. Comma-separate fallbacks; first match wins.",
+    )
+    .option(
+      "--open-wait <ms>",
+      "Milliseconds to wait after --open click before scanning",
+      "900",
+    )
     .action(async (url, opts) => {
       const browser = await chromium.launch({ headless: true });
       const context = await browser.newContext();
       const page = await context.newPage();
 
       try {
-        const target = url.startsWith("http") || url.startsWith("file://") ? url : "file://" + path.resolve(url);
-        await page.goto(target, { waitUntil: "domcontentloaded", timeout: 30000 });
+        const target =
+          url.startsWith("http") || url.startsWith("file://")
+            ? url
+            : "file://" + path.resolve(url);
+        await page.goto(target, {
+          waitUntil: "domcontentloaded",
+          timeout: 30000,
+        });
         // Wait a bit for JS-rendered content
         await page.waitForTimeout(2000);
+
+        // --open: click to reveal an overlay whose contents axe can't see while closed.
+        if (opts.open) {
+          let opened = false;
+          for (const sel of opts.open
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)) {
+            const loc = page.locator(sel).first();
+            if ((await loc.count()) > 0) {
+              await loc.click({ timeout: 4000 }).catch(() => {});
+              opened = true;
+              break;
+            }
+          }
+          if (!opened) {
+            process.stderr.write(
+              `⚠ --open: no element matched "${opts.open}" — scanning closed state\n`,
+            );
+          }
+          await page.waitForTimeout(parseInt(opts.openWait, 10) || 900);
+        }
 
         const results = await scan(page);
 
@@ -37,10 +91,15 @@ export function scanCommand() {
         let aiAnalysis = null;
         let aiMeta = null;
         if (opts.ai) {
-          const { provider, model } = resolveProviderAndModel(opts.provider, opts.model);
+          const { provider, model } = resolveProviderAndModel(
+            opts.provider,
+            opts.model,
+          );
           aiMeta = { provider, model };
-          if (!opts.visual) console.log(`\nAnalyzing with ${provider} (${model})...\n`);
-          else process.stderr.write(`Analyzing with ${provider} (${model})...\n`);
+          if (!opts.visual)
+            console.log(`\nAnalyzing with ${provider} (${model})...\n`);
+          else
+            process.stderr.write(`Analyzing with ${provider} (${model})...\n`);
           try {
             aiAnalysis = await analyzeWithAI(results, { provider, model });
           } catch (err) {
@@ -61,7 +120,8 @@ export function scanCommand() {
           if (aiAnalysis) {
             console.log("\n--- AI Analysis ---\n");
             if (aiAnalysis.summary) console.log(`  ${aiAnalysis.summary}\n`);
-            if (aiAnalysis.score != null) console.log(`  Score: ${aiAnalysis.score}/10\n`);
+            if (aiAnalysis.score != null)
+              console.log(`  Score: ${aiAnalysis.score}/10\n`);
             if (aiAnalysis.fixes?.length) {
               for (const f of aiAnalysis.fixes) {
                 const v = results.violations[f.index];
@@ -76,9 +136,13 @@ export function scanCommand() {
         }
 
         if (opts.test) {
-          const testCode = generateTests(results, { framework: opts.framework });
+          const testCode = generateTests(results, {
+            framework: opts.framework,
+          });
           if (testCode) {
-            const outPath = opts.output || `a11y-regression.test.${opts.framework === "vitest" ? "js" : "js"}`;
+            const outPath =
+              opts.output ||
+              `a11y-regression.test.${opts.framework === "vitest" ? "js" : "js"}`;
             fs.writeFileSync(outPath, testCode, "utf-8");
             console.log(`\nTest file written: ${outPath}`);
           } else {
@@ -95,7 +159,9 @@ export function scanCommand() {
 function printTextReport(results) {
   console.log(`\nScreen Reader Scan: ${results.title}`);
   console.log(`URL: ${results.url}`);
-  console.log(`DOM elements: ${results.stats.domElements} | Headings: ${results.stats.headingCount} | Landmarks: ${results.stats.landmarkCount}`);
+  console.log(
+    `DOM elements: ${results.stats.domElements} | Headings: ${results.stats.headingCount} | Landmarks: ${results.stats.landmarkCount}`,
+  );
   console.log();
 
   if (results.violations.length === 0) {
@@ -103,10 +169,17 @@ function printTextReport(results) {
     return;
   }
 
-  console.log(`Found ${results.stats.violationCount} issues (${results.stats.critical} critical, ${results.stats.moderate} moderate, ${results.stats.minor} minor)\n`);
+  console.log(
+    `Found ${results.stats.violationCount} issues (${results.stats.critical} critical, ${results.stats.moderate} moderate, ${results.stats.minor} minor)\n`,
+  );
 
   for (const v of results.violations) {
-    const sev = v.severity === "critical" ? "CRITICAL" : v.severity === "moderate" ? "MODERATE" : "MINOR";
+    const sev =
+      v.severity === "critical"
+        ? "CRITICAL"
+        : v.severity === "moderate"
+          ? "MODERATE"
+          : "MINOR";
     console.log(`  [${sev}] ${v.message}`);
     if (v.element?.selector) console.log(`    Element: ${v.element.selector}`);
     if (v.wcag) console.log(`    WCAG: ${v.wcag}`);
@@ -116,6 +189,8 @@ function printTextReport(results) {
 
   console.log("--- Heading Structure ---");
   for (const h of results.headings) {
-    console.log(`${"  ".repeat(h.level - 1)}h${h.level}: ${h.text.slice(0, 80)}`);
+    console.log(
+      `${"  ".repeat(h.level - 1)}h${h.level}: ${h.text.slice(0, 80)}`,
+    );
   }
 }
