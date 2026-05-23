@@ -1,7 +1,8 @@
 import readline from "node:readline";
 import { startDaemon, connectBrowser, stopDaemon } from "./daemon.js";
 import { createBridge } from "./bridge.js";
-import { createLiveBridge, detectReader } from "./live-bridge.js";
+import { createLiveBridge } from "./live-bridge.js";
+import { readerLabel } from "./readers.js";
 
 const HELP = `
 Commands:
@@ -124,13 +125,11 @@ export async function startRepl() {
         const readerName = rest[0] || undefined;
         liveBridge = await createLiveBridge(readerName);
         await liveBridge.start();
-        const label = liveBridge.readerName === "voiceover" ? "VoiceOver" : "NVDA";
-        console.log(`${label} started. Use "live next", "live previous", "live log", etc.`);
+        console.log(`${readerLabel(liveBridge.readerName)} started. Use "live next", "live previous", "live log", etc.`);
       } else if (group === "live" && cmd === "stop") {
         if (liveBridge) {
           await liveBridge.stop();
-          const label = liveBridge.readerName === "voiceover" ? "VoiceOver" : "NVDA";
-          console.log(`${label} stopped.`);
+          console.log(`${readerLabel(liveBridge.readerName)} stopped.`);
           liveBridge = null;
         } else {
           console.log("No live screen reader is running.");

@@ -4,6 +4,8 @@ A command-line screen reader testing tool. Scan any page for accessibility viola
 
 Powered by [Virtual Screen Reader](https://github.com/guidepup/virtual-screen-reader), [Guidepup](https://github.com/guidepup/guidepup), [axe-core](https://github.com/dequelabs/axe-core), and [Playwright](https://playwright.dev/).
 
+> **New here?** Read the [one-page overview](docs/overview.md) for a non-technical summary, or the [usage guide](docs/usage-guide.md) for a hands-on walkthrough of how to use, operate, and read the output.
+
 ## What it does
 
 - **Scans** pages for screen-reader-specific violations (heading skips, missing alt text, missing accessible names, hidden focusable elements, missing landmarks, missing form labels) + axe-core rules
@@ -12,6 +14,16 @@ Powered by [Virtual Screen Reader](https://github.com/guidepup/virtual-screen-re
 - **Visual reports** — HTML reports with issue tables, heading structure, DOM reading order, and screenshots
 - **Navigates** by element, heading, landmark, link, or form (virtual mode)
 - **Works offline** — everything runs locally, no CDN dependencies
+
+## Supported screen readers
+
+| Reader               | Live (real reader, driven) | Virtual scan (spec-based) |
+| -------------------- | :------------------------: | :-----------------------: |
+| NVDA (Windows)       |             ✅             |            ✅             |
+| VoiceOver (macOS)    |             ✅             |            ✅             |
+| JAWS (Windows)       |   ❌ (no automation API)   |    ✅ findings apply      |
+
+**About JAWS:** there is no way to drive JAWS programmatically (it exposes no compatible free automation API, and Guidepup has no JAWS driver), so `live` mode is limited to NVDA and VoiceOver. This is **not** a real gap in coverage: the `scan` command checks the underlying markup — missing accessible names, heading skips, unlabeled fields, missing landmarks, broken ARIA — against the same W3C specifications that **all** screen readers obey. A violation `scan` reports affects NVDA, VoiceOver, **and** JAWS users alike. On any OS (including Linux, where live mode can't run), `screenreader scan <url>` gives you reader-agnostic results.
 
 ## Install
 
@@ -81,6 +93,8 @@ screenreader scan <url> --ai                               # AI analysis of resu
 screenreader scan <url> --ai --model sonnet                # Use Claude Sonnet
 screenreader scan <url> --ai --model gpt-4o                # Use GPT-4o
 screenreader scan <url> --ai --provider ollama             # Use local model (free)
+screenreader scan <url> --fail-on critical                 # Exit non-zero for CI (gate)
+screenreader scan <url> --fail-on moderate --threshold 5   # Allow up to 5 issues
 ```
 
 #### AI analysis (`--ai`)
@@ -110,6 +124,27 @@ Works with URLs and local files:
 
 ```bash
 screenreader scan test/fixtures/violations.html
+```
+
+#### CI gating (`--fail-on`, `--threshold`)
+
+By default `scan` always exits `0` (it only reports). Add `--fail-on` to make it a build gate:
+
+- `--fail-on <severity>` — count violations at or above this severity (`critical`, `moderate`, or `minor`). `critical` also includes axe "serious" findings.
+- `--threshold <n>` — how many such violations are tolerated before failing (default `0`).
+
+When the count exceeds the threshold the process exits `1`; the one-line pass/fail summary is written to **stderr**, so `--json` on **stdout** stays clean for parsing. An invalid `--fail-on` value exits `2`.
+
+```yaml
+# .github/workflows/a11y.yml
+- name: Accessibility gate
+  run: screenreader scan "$DEPLOY_URL" --fail-on critical
+```
+
+```bash
+# Gate in CI but still capture the full machine-readable report
+screenreader scan https://example.com --json --fail-on moderate > a11y.json
+echo "exit code: $?"   # 0 = within threshold, 1 = gate failed
 ```
 
 ### `live` — Real screen reader testing
@@ -242,6 +277,49 @@ screenreader audit https://example.com --summary --json
 }
 ```
 
+## Input & output
+
+**What you give it (input):**
+
+- A **remote URL** — `screenreader scan https://example.com`
+- A **local HTML file** — `screenreader scan ./build/index.html` (relative paths are resolved to a `file://` URL automatically)
+- A **`file://` URL** — passed through as-is
+
+Each run scans **one page**. (See [Web applications](#web-applications--different-page-types) for multi-page apps.)
+
+**What you get back (output):** pick the form that fits your workflow.
+
+| Form         | Flag        | Best for                                  |
+| ------------ | ----------- | ----------------------------------------- |
+| Text report  | _(default)_ | Reading in the terminal                   |
+| JSON         | `--json`    | CI pipelines, scripting, dashboards       |
+| Visual HTML  | `--visual`  | Sharing with designers/managers (+ screenshot) |
+| Test file    | `--test`    | Locking in fixes as Playwright/Vitest regression tests |
+
+The default text report shows the page title, element/heading/landmark counts, every violation (sorted critical → minor) with its element selector, WCAG reference, and suggested fix, plus the heading outline. The `--json` payload looks like:
+
+```jsonc
+{
+  "url": "https://example.com/",
+  "title": "Example Domain",
+  "domOrder": [ { "index": 0, "tag": "h1", "role": "heading", "name": "...", "rect": {…} } ],
+  "headings": [ { "level": 1, "text": "Example Domain" } ],
+  "violations": [
+    {
+      "source": "axe",            // or "custom"
+      "id": "image-alt",
+      "severity": "critical",     // critical | moderate | minor
+      "message": "Images must have alternate text",
+      "wcag": "2a, 412",
+      "suggestion": "Add an alt attribute…",
+      "element": { "selector": "img", "html": "<img src=…>" }
+    }
+  ],
+  "stats": { "domElements": 12, "headingCount": 1, "landmarkCount": 1,
+             "violationCount": 1, "critical": 1, "moderate": 0, "minor": 0 }
+}
+```
+
 ## How it works
 
 ### Virtual mode (`scan`, `page`, `nav`, `audit`, etc.)
@@ -260,6 +338,21 @@ The Virtual Screen Reader implements the same [W3C accessibility specifications]
 2. **Guidepup** starts VoiceOver (macOS) or NVDA (Windows)
 3. The screen reader traverses the page — you hear what it actually announces
 4. Results are captured via guidepup's API (`lastSpokenPhrase()`, `spokenPhraseLog()`)
+
+## Web applications & different page types
+
+`scan` drives a real Chromium browser, so client-rendered apps work — JavaScript executes and the rendered DOM is what gets checked. A few things to know:
+
+- **SPAs / JS-rendered content** — after navigation the scanner waits ~2 seconds for scripts to settle before reading the page. Content that streams in later (lazy lists, deferred widgets) may be missed; trigger it first (see `--open`) or scan a route that renders it eagerly.
+- **Dropdowns, menus, modals, dialogs** — components that are collapsed in the DOM hide their contents from the checks. Use `--open "<selector>"` to click them open before scanning, and `--open-wait <ms>` to control the settle time. Comma-separate fallback selectors; the first match wins.
+
+  ```bash
+  screenreader scan https://example.com --open "button[aria-haspopup], .menu-toggle" --open-wait 1200
+  ```
+
+- **Multi-page apps** — scan **one route at a time** (`scan /`, `scan /checkout`, …) and gate each in CI. For exploring a single app across many steps, the `repl`/`daemon` keep one browser session alive so navigation state persists.
+- **Pages behind login** — **not supported.** Each scan uses a fresh, unauthenticated browser context (no cookies, storage, or credentials), so anything behind a login wall won't load. Point `scan` at a public URL, a preview/staging URL that doesn't require auth, or a local HTML file.
+- **Storybook / component sandboxes** — scan the rendered component frame directly, e.g. `…/iframe.html?id=button--primary`.
 
 ## Use cases
 
@@ -285,8 +378,10 @@ Claude runs `scan` + `audit` paired, saves text + JSON to disk, and surfaces the
 npm test
 
 # Individual suites
-node --test test/scan.test.js       # Scan command (13 tests)
-node --test test/live.test.js       # Live command (7 tests)
+node --test test/scan.test.js       # Scan command (needs a browser)
+node --test test/live.test.js       # Live command + reader registry
+node --test test/readers.test.js    # Supported-reader source of truth
+node --test test/gating.test.js     # CI gating logic
 node --test test/commands.test.js   # Virtual mode commands
 node --test test/bridge.test.js     # VSR bridge
 node --test test/audit.test.js      # Audit command
@@ -295,6 +390,15 @@ node --test test/daemon.test.js     # Browser daemon
 # E2E tests (requires network)
 node --test test/e2e.test.js
 ```
+
+## Limitations & what to watch for
+
+- **Live mode is macOS/Windows only.** On Linux (and CI runners without a desktop session) use `scan` — it's reader-agnostic and covers the same issues. JAWS can't be driven at all (see [Supported screen readers](#supported-screen-readers)).
+- **Live mode needs one-time setup** — `npx @guidepup/setup` to grant OS automation permissions.
+- **No authentication.** `scan` runs in a fresh, cookieless browser context; pages behind login won't load.
+- **Dynamic content timing.** The scanner waits ~2s after load; content that appears later can be missed unless you reveal it with `--open`.
+- **Automated checks aren't the whole story.** axe-core covers WCAG 2 A/AA rules and our custom checks catch common screen-reader pitfalls, but automation can't judge whether alt text is *meaningful* or whether the reading order makes *sense* — pair this with real testing for anything high-stakes.
+- **One page per run.** Multi-page apps are scanned route-by-route.
 
 ## Built with
 

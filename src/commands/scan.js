@@ -10,6 +10,7 @@ import {
   analyzeWithAI,
   resolveProviderAndModel,
 } from "../services/ai-analyzer.js";
+import { evaluateGate, GATE_SEVERITIES } from "../services/gating.js";
 
 export function scanCommand() {
   return new Command("scan")
@@ -45,6 +46,15 @@ export function scanCommand() {
       "--open-wait <ms>",
       "Milliseconds to wait after --open click before scanning",
       "900",
+    )
+    .option(
+      "--fail-on <severity>",
+      `Exit non-zero for CI when violations at/above this severity exceed --threshold (${GATE_SEVERITIES.join(", ")})`,
+    )
+    .option(
+      "--threshold <n>",
+      "Max allowed violations at/above --fail-on before failing",
+      "0",
     )
     .action(async (url, opts) => {
       const browser = await chromium.launch({ headless: true });
@@ -147,6 +157,33 @@ export function scanCommand() {
             console.log(`\nTest file written: ${outPath}`);
           } else {
             console.log("\nNo violations found — no test file generated.");
+          }
+        }
+
+        // CI gating: set a non-zero exit code without polluting stdout (so
+        // `--json` output stays machine-parseable). Summary goes to stderr.
+        if (opts.failOn) {
+          if (!GATE_SEVERITIES.includes(opts.failOn)) {
+            process.stderr.write(
+              `Invalid --fail-on "${opts.failOn}". Use one of: ${GATE_SEVERITIES.join(", ")}.\n`,
+            );
+            process.exitCode = 2;
+            return;
+          }
+          const threshold = parseInt(opts.threshold, 10) || 0;
+          const { count, failed } = evaluateGate(results.stats, {
+            failOn: opts.failOn,
+            threshold,
+          });
+          if (failed) {
+            process.exitCode = 1;
+            process.stderr.write(
+              `\n✖ ${count} violation(s) at or above "${opts.failOn}" (threshold ${threshold}) — failing.\n`,
+            );
+          } else {
+            process.stderr.write(
+              `\n✓ ${count} violation(s) at or above "${opts.failOn}" (threshold ${threshold}) — passing.\n`,
+            );
           }
         }
       } finally {

@@ -1,7 +1,8 @@
 import path from "node:path";
 import { Command } from "commander";
 import { chromium } from "playwright";
-import { createLiveBridge, detectReader } from "../live-bridge.js";
+import { createLiveBridge } from "../live-bridge.js";
+import { readerLabel } from "../readers.js";
 
 function readerOption(cmd) {
   return cmd.option(
@@ -33,8 +34,7 @@ export function liveCommand() {
     await page.goto(target, { waitUntil: "domcontentloaded" });
     await bridge.start();
 
-    const readerLabel = bridge.readerName === "voiceover" ? "VoiceOver" : "NVDA";
-    console.log(`${readerLabel} started on: ${target}`);
+    console.log(`${readerLabel(bridge.readerName)} started on: ${target}`);
     console.log("Use the other live subcommands (next, previous, log) to navigate.");
     console.log("Press Ctrl+C to stop.\n");
 
@@ -90,8 +90,7 @@ export function liveCommand() {
       if (opts.json) {
         console.log(JSON.stringify({ url: target, phrases, count: phrases.length }, null, 2));
       } else {
-        const readerLabel = bridge.readerName === "voiceover" ? "VoiceOver" : "NVDA";
-        console.log(`\n${readerLabel} reading of: ${target}\n`);
+        console.log(`\n${readerLabel(bridge.readerName)} reading of: ${target}\n`);
         phrases.forEach((p, i) => console.log(`  ${i + 1}. ${p}`));
         console.log(`\n(${phrases.length} announcements)`);
       }
@@ -178,8 +177,7 @@ export function liveCommand() {
           )
         );
       } else {
-        const readerLabel = bridge.readerName === "voiceover" ? "VoiceOver" : "NVDA";
-        console.log(`\n${readerLabel} Test: ${target}`);
+        console.log(`\n${readerLabel(bridge.readerName)} Test: ${target}`);
         console.log(`Announcements: ${phrases.length}`);
 
         if (issues.length === 0) {

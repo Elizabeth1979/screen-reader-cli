@@ -3,28 +3,38 @@
  * via @guidepup/guidepup. Same method shape as bridge.js for consistency.
  */
 
-let voiceOverModule;
-let nvdaModule;
+import {
+  SUPPORTED_READERS,
+  SUPPORTED_READER_NAMES,
+  supportedReaderList,
+} from "./readers.js";
+
+// Maps our reader keys to the @guidepup/guidepup export names.
+const GUIDEPUP_EXPORTS = { voiceover: "voiceOver", nvda: "nvda" };
+
+const SCAN_HINT =
+  'Tip: `screenreader scan <url>` (virtual mode) works on any OS and surfaces the same issues — including the ones JAWS users would hit.';
 
 async function loadReader(name) {
-  // Dynamic import so we only load the reader we need
+  if (!SUPPORTED_READER_NAMES.includes(name)) {
+    throw new Error(
+      `Unknown screen reader: "${name}". Live mode supports: ${supportedReaderList()}. ` +
+        `Real JAWS automation isn't supported (no compatible automation API). ${SCAN_HINT}`,
+    );
+  }
+  // Dynamic import so we only load the reader we need.
   const gp = await import("@guidepup/guidepup");
-  if (name === "voiceover") {
-    voiceOverModule = gp.voiceOver;
-    return voiceOverModule;
-  }
-  if (name === "nvda") {
-    nvdaModule = gp.nvda;
-    return nvdaModule;
-  }
-  throw new Error(`Unknown screen reader: ${name}. Use "voiceover" or "nvda".`);
+  return gp[GUIDEPUP_EXPORTS[name]];
 }
 
 export function detectReader() {
-  if (process.platform === "darwin") return "voiceover";
-  if (process.platform === "win32") return "nvda";
+  const match = SUPPORTED_READER_NAMES.find(
+    (name) => SUPPORTED_READERS[name].platform === process.platform,
+  );
+  if (match) return match;
   throw new Error(
-    `Unsupported platform: ${process.platform}. Live mode requires macOS (VoiceOver) or Windows (NVDA).`
+    `Unsupported platform: ${process.platform}. Live mode requires macOS (VoiceOver) or Windows (NVDA). ` +
+      SCAN_HINT,
   );
 }
 
