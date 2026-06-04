@@ -6,7 +6,7 @@ import { VIOLATION_CHECKS } from "./violations.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const AXE_SOURCE = fs.readFileSync(
   path.resolve(__dirname, "../../node_modules/axe-core/axe.min.js"),
-  "utf-8"
+  "utf-8",
 );
 
 export async function scan(page) {
@@ -17,10 +17,24 @@ export async function scan(page) {
   const custom = await page.evaluate(VIOLATION_CHECKS);
 
   // 3. axe-core
-  const axeResults = await runAxe(page);
+  const axe = await runAxe(page);
 
   // 4. Merge — deduplicate overlapping findings
-  const merged = mergeResults(custom.violations, axeResults);
+  const merged = mergeResults(custom.violations, axe.violations);
+
+  // 4b. axe "needs review" (incomplete) — not pass/fail, requires human judgment
+  const needsReview = axe.incomplete.flatMap((rule) =>
+    rule.nodes.map((node) => ({
+      source: "axe-incomplete",
+      id: rule.id,
+      message: rule.help,
+      wcag:
+        rule.tags.find((t) => t.startsWith("wcag"))?.replace("wcag", "") || "",
+      suggestion: node.failureSummary || rule.description,
+      element: { selector: node.target?.[0] || "", html: node.html },
+      helpUrl: rule.helpUrl,
+    })),
+  );
 
   // 5. Screenshot for visual report
   const screenshot = await page.screenshot({ fullPage: true, type: "png" });
@@ -36,12 +50,14 @@ export async function scan(page) {
     domOrder,
     headings: custom.headings,
     violations: merged,
+    needsReview,
     screenshot: screenshot.toString("base64"),
     stats: {
       domElements: domOrder.length,
       headingCount: custom.headings.length,
       landmarkCount: custom.landmarkCount,
       violationCount: merged.length,
+      needsReviewCount: needsReview.length,
       critical: merged.filter((v) => v.severity === "critical").length,
       moderate: merged.filter((v) => v.severity === "moderate").length,
       minor: merged.filter((v) => v.severity === "minor").length,
@@ -69,29 +85,71 @@ async function extractDomOrder(page) {
           const role = node.getAttribute("role") || "";
           const tag = node.tagName.toLowerCase();
           const interactive = [
-            "a", "button", "input", "select", "textarea",
-            "h1", "h2", "h3", "h4", "h5", "h6",
-            "img", "nav", "main", "header", "footer", "aside",
-            "section", "article", "form", "table", "li",
+            "a",
+            "button",
+            "input",
+            "select",
+            "textarea",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "img",
+            "nav",
+            "main",
+            "header",
+            "footer",
+            "aside",
+            "section",
+            "article",
+            "form",
+            "table",
+            "li",
           ];
           const ariaRoles = [
-            "button", "link", "heading", "img", "navigation",
-            "main", "banner", "contentinfo", "complementary",
-            "search", "form", "region", "tab", "tabpanel",
-            "dialog", "alert", "status", "listbox", "option",
-            "checkbox", "radio", "switch", "combobox", "menu",
-            "menuitem", "treeitem",
+            "button",
+            "link",
+            "heading",
+            "img",
+            "navigation",
+            "main",
+            "banner",
+            "contentinfo",
+            "complementary",
+            "search",
+            "form",
+            "region",
+            "tab",
+            "tabpanel",
+            "dialog",
+            "alert",
+            "status",
+            "listbox",
+            "option",
+            "checkbox",
+            "radio",
+            "switch",
+            "combobox",
+            "menu",
+            "menuitem",
+            "treeitem",
           ];
           if (interactive.includes(tag) || ariaRoles.includes(role)) {
             return NodeFilter.FILTER_ACCEPT;
           }
           // Text nodes with content
-          if (node.childNodes.length === 1 && node.childNodes[0].nodeType === 3 && node.textContent.trim()) {
+          if (
+            node.childNodes.length === 1 &&
+            node.childNodes[0].nodeType === 3 &&
+            node.textContent.trim()
+          ) {
             return NodeFilter.FILTER_ACCEPT;
           }
           return NodeFilter.FILTER_SKIP;
         },
-      }
+      },
     );
 
     let index = 0;
@@ -125,25 +183,31 @@ async function extractDomOrder(page) {
 async function runAxe(page) {
   await page.evaluate(AXE_SOURCE);
   const raw = await page.evaluate(async () => {
-    const results = await window.axe.run(document, {
+    const opts = {
       runOnly: {
         type: "tag",
         values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"],
       },
+    };
+    const results = await window.axe.run(document, opts);
+    const mapNode = (n) => ({
+      html: n.html.slice(0, 300),
+      target: n.target,
+      failureSummary: n.failureSummary,
     });
-    return results.violations.map((v) => ({
+    const mapRule = (v) => ({
       id: v.id,
       impact: v.impact,
       description: v.description,
       help: v.help,
       helpUrl: v.helpUrl,
       tags: v.tags,
-      nodes: v.nodes.map((n) => ({
-        html: n.html.slice(0, 300),
-        target: n.target,
-        failureSummary: n.failureSummary,
-      })),
-    }));
+      nodes: v.nodes.map(mapNode),
+    });
+    return {
+      violations: results.violations.map(mapRule),
+      incomplete: results.incomplete.map(mapRule),
+    };
   });
 
   return raw;
@@ -179,7 +243,7 @@ function mergeResults(customViolations, axeViolations) {
     "image-alt": "missing-alt",
     "button-name": "missing-button-name",
     "link-name": "missing-link-name",
-    "label": "missing-form-label",
+    label: "missing-form-label",
     "landmark-one-main": "missing-main-landmark",
     "aria-hidden-focus": "hidden-focusable",
   };
@@ -194,7 +258,8 @@ function mergeResults(customViolations, axeViolations) {
         id: axe.id,
         severity: SEVERITY_MAP[axe.impact] || "moderate",
         message: axe.help,
-        wcag: axe.tags.find((t) => t.startsWith("wcag"))?.replace("wcag", "") || "",
+        wcag:
+          axe.tags.find((t) => t.startsWith("wcag"))?.replace("wcag", "") || "",
         suggestion: node.failureSummary || axe.description,
         element: {
           selector: node.target?.[0] || "",

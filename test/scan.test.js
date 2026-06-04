@@ -1,10 +1,12 @@
-import { describe, it } from "node:test";
+import { describe, it, test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import os from "node:os";
+import { chromium } from "playwright";
+import { scan } from "../src/services/scanner.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CLI = path.resolve(__dirname, "../bin/cli.js");
@@ -21,15 +23,20 @@ function run(...args) {
 describe("scan command — text output", () => {
   it("reports no violations on clean page", () => {
     const output = run("scan", CLEAN_FIXTURE);
-    assert.ok(output.includes("Screen Reader Scan:"), "should show scan header");
+    assert.ok(
+      output.includes("Screen Reader Scan:"),
+      "should show scan header",
+    );
   });
 
   it("finds violations on bad page", () => {
     const output = run("scan", VIOLATIONS_FIXTURE);
     assert.ok(output.includes("issues"), "should report issues found");
     assert.ok(
-      output.includes("CRITICAL") || output.includes("MODERATE") || output.includes("MINOR"),
-      "should show severity labels"
+      output.includes("CRITICAL") ||
+        output.includes("MODERATE") ||
+        output.includes("MINOR"),
+      "should show severity labels",
     );
   });
 
@@ -37,7 +44,7 @@ describe("scan command — text output", () => {
     const output = run("scan", VIOLATIONS_FIXTURE);
     assert.ok(
       output.toLowerCase().includes("heading"),
-      "should flag heading hierarchy issue"
+      "should flag heading hierarchy issue",
     );
   });
 
@@ -45,7 +52,7 @@ describe("scan command — text output", () => {
     const output = run("scan", VIOLATIONS_FIXTURE);
     assert.ok(
       output.toLowerCase().includes("alt"),
-      "should flag missing alt text"
+      "should flag missing alt text",
     );
   });
 });
@@ -89,7 +96,11 @@ describe("scan command — JSON output", () => {
   it("clean page returns zero violations", () => {
     const output = run("scan", CLEAN_FIXTURE, "--json");
     const data = JSON.parse(output);
-    assert.equal(data.stats.violationCount, 0, "clean page should have 0 violations");
+    assert.equal(
+      data.stats.violationCount,
+      0,
+      "clean page should have 0 violations",
+    );
     assert.equal(data.violations.length, 0);
   });
 });
@@ -103,10 +114,19 @@ describe("scan command — test generation", () => {
     assert.ok(fs.existsSync(outPath), "test file should be created");
 
     const content = fs.readFileSync(outPath, "utf-8");
-    assert.ok(content.includes("@playwright/test"), "should import from playwright");
+    assert.ok(
+      content.includes("@playwright/test"),
+      "should import from playwright",
+    );
     assert.ok(content.includes("test("), "should contain test cases");
-    assert.ok(content.includes("test.describe("), "should have a describe block");
-    assert.ok(content.includes("test.beforeEach"), "should have beforeEach with goto");
+    assert.ok(
+      content.includes("test.describe("),
+      "should have a describe block",
+    );
+    assert.ok(
+      content.includes("test.beforeEach"),
+      "should have beforeEach with goto",
+    );
 
     fs.unlinkSync(outPath);
   });
@@ -115,7 +135,15 @@ describe("scan command — test generation", () => {
     const outPath = path.join(os.tmpdir(), "sr-test-a11y-vitest.test.js");
     if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
 
-    run("scan", VIOLATIONS_FIXTURE, "--test", "--framework", "vitest", "--output", outPath);
+    run(
+      "scan",
+      VIOLATIONS_FIXTURE,
+      "--test",
+      "--framework",
+      "vitest",
+      "--output",
+      outPath,
+    );
     assert.ok(fs.existsSync(outPath), "test file should be created");
 
     const content = fs.readFileSync(outPath, "utf-8");
@@ -130,8 +158,14 @@ describe("scan command — test generation", () => {
     if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
 
     const output = run("scan", CLEAN_FIXTURE, "--test", "--output", outPath);
-    assert.ok(!fs.existsSync(outPath), "should not create file when no violations");
-    assert.ok(output.includes("No violations"), "should say no violations found");
+    assert.ok(
+      !fs.existsSync(outPath),
+      "should not create file when no violations",
+    );
+    assert.ok(
+      output.includes("No violations"),
+      "should say no violations found",
+    );
   });
 });
 
@@ -140,7 +174,10 @@ describe("scan command — visual report", () => {
     // We can't easily test that it opens in browser, but we can verify
     // it doesn't crash and produces output mentioning the report
     const output = run("scan", VIOLATIONS_FIXTURE, "--visual");
-    assert.ok(output.includes("Report opened:"), "should confirm report was opened");
+    assert.ok(
+      output.includes("Report opened:"),
+      "should confirm report was opened",
+    );
     assert.ok(output.includes(".html"), "should mention HTML file path");
   });
 });
@@ -149,10 +186,32 @@ describe("scan command — local file paths", () => {
   it("accepts relative file path without file:// prefix", () => {
     const relativePath = path.relative(
       process.cwd(),
-      path.resolve(__dirname, "fixtures/violations.html")
+      path.resolve(__dirname, "fixtures/violations.html"),
     );
     const output = run("scan", relativePath, "--json");
     const data = JSON.parse(output);
-    assert.ok(data.violations.length > 0, "should find violations from relative path");
+    assert.ok(
+      data.violations.length > 0,
+      "should find violations from relative path",
+    );
   });
+});
+
+test("scan surfaces axe incomplete as needsReview (dangling describedby)", async () => {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newContext().then((c) => c.newPage());
+  try {
+    const file =
+      "file://" + path.resolve(__dirname, "fixtures/dangling-describedby.html");
+    await page.goto(file, { waitUntil: "domcontentloaded" });
+    const results = await scan(page);
+    assert.ok(Array.isArray(results.needsReview), "needsReview array exists");
+    assert.ok(
+      results.needsReview.some((r) => r.id === "aria-valid-attr-value"),
+      "aria-valid-attr-value flagged as needs-review",
+    );
+    assert.equal(results.stats.needsReviewCount, results.needsReview.length);
+  } finally {
+    await browser.close();
+  }
 });

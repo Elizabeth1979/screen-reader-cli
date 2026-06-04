@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Dangling describedby</title>
+  </head>
+  <body>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="h"
+      aria-describedby="does-not-exist"
+    >
+      <h2 id="h">Confirm</h2>
+      <p>Are you sure?</p>
+      <button>OK</button>
+    </div>
+  </body>
+</html>
