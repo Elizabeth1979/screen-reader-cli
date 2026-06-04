@@ -46,6 +46,12 @@ export function scanCommand() {
       "Milliseconds to wait after --open click before scanning",
       "900",
     )
+    .option(
+      "--open-target <selector>",
+      "After --open, wait until this selector appears before scanning " +
+        '(e.g. "[role=dialog]" for a modal, "[role=menu]" for a menu). ' +
+        "Falls back to --open-wait on timeout or when omitted.",
+    )
     .action(async (url, opts) => {
       const browser = await chromium.launch({ headless: true });
       const context = await browser.newContext();
@@ -65,24 +71,7 @@ export function scanCommand() {
 
         // --open: click to reveal an overlay whose contents axe can't see while closed.
         if (opts.open) {
-          let opened = false;
-          for (const sel of opts.open
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean)) {
-            const loc = page.locator(sel).first();
-            if ((await loc.count()) > 0) {
-              await loc.click({ timeout: 4000 }).catch(() => {});
-              opened = true;
-              break;
-            }
-          }
-          if (!opened) {
-            process.stderr.write(
-              `⚠ --open: no element matched "${opts.open}" — scanning closed state\n`,
-            );
-          }
-          await page.waitForTimeout(parseInt(opts.openWait, 10) || 900);
+          await openAndSettle(page, opts);
         }
 
         const results = await scan(page);
@@ -209,4 +198,38 @@ function printTextReport(results) {
       `${"  ".repeat(h.level - 1)}h${h.level}: ${h.text.slice(0, 80)}`,
     );
   }
+}
+
+// Click the --open selector to reveal an overlay, then settle before scanning.
+// Settle = wait for --open-target to appear (portal/overlay safe); fall back to
+// the fixed --open-wait on timeout or when no target is given. Exported for tests.
+export async function openAndSettle(page, opts) {
+  let opened = false;
+  for (const sel of (opts.open || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)) {
+    const loc = page.locator(sel).first();
+    if ((await loc.count()) > 0) {
+      await loc.click({ timeout: 4000 }).catch(() => {});
+      opened = true;
+      break;
+    }
+  }
+  if (!opened) {
+    process.stderr.write(
+      `⚠ --open: no element matched "${opts.open}" — scanning closed state\n`,
+    );
+  }
+  if (opts.openTarget) {
+    try {
+      await page.waitForSelector(opts.openTarget, { timeout: 5000 });
+      return;
+    } catch {
+      process.stderr.write(
+        `⚠ --open-target "${opts.openTarget}" not found in 5s — falling back to fixed wait\n`,
+      );
+    }
+  }
+  await page.waitForTimeout(parseInt(opts.openWait, 10) || 900);
 }

@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import { chromium } from "playwright";
 import { scan } from "../src/services/scanner.js";
+import { openAndSettle } from "../src/commands/scan.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CLI = path.resolve(__dirname, "../bin/cli.js");
@@ -269,6 +270,25 @@ test("scan surfaces axe incomplete as needsReview (dangling describedby)", async
       "aria-valid-attr-value flagged as needs-review",
     );
     assert.equal(results.stats.needsReviewCount, results.needsReview.length);
+  } finally {
+    await browser.close();
+  }
+});
+
+test("openAndSettle waits for --open-target before resolving (portal overlay)", async () => {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newContext().then((c) => c.newPage());
+  try {
+    const file =
+      "file://" + path.resolve(__dirname, "fixtures/portal-delayed.html");
+    await page.goto(file, { waitUntil: "domcontentloaded" });
+    await openAndSettle(page, {
+      open: "#open",
+      openTarget: "[role=dialog]",
+      openWait: "900",
+    });
+    const dialog = await page.$("[role=dialog]");
+    assert.ok(dialog, "dialog is present after settle");
   } finally {
     await browser.close();
   }

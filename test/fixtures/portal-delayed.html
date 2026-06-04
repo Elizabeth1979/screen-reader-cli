@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Portal delayed</title>
+  </head>
+  <body>
+    <button id="open">Open Modal</button>
+    <script>
+      document.getElementById("open").addEventListener("click", () => {
+        // Simulate a portal-based overlay that mounts a beat after the click
+        // (like Penny's Chakra/floating-ui modals). A fixed short wait would
+        // miss this; --open-target must wait for [role=dialog] to appear.
+        setTimeout(() => {
+          const d = document.createElement("div");
+          d.setAttribute("role", "dialog");
+          d.setAttribute("aria-label", "Delayed dialog");
+          d.innerHTML = "<button>Inside</button>";
+          document.body.appendChild(d);
+        }, 600);
+      });
+    </script>
+  </body>
+</html>
