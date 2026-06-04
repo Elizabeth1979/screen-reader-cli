@@ -109,6 +109,25 @@ describe("scan command — JSON output", () => {
     assert.equal(typeof data.stats.landmarkCount, "number");
   });
 
+  it("violations come only from axe (custom redundant rules removed) but headings + landmarks still populate", () => {
+    const output = run("scan", VIOLATIONS_FIXTURE, "--json");
+    const data = JSON.parse(output);
+    // All 9 hand-written rules were redundant with axe and were removed.
+    // Detection is axe-only now; no violation should carry source "custom".
+    assert.ok(
+      data.violations.every((v) => v.source !== "custom"),
+      "no violation should have source 'custom' after removing redundant rules",
+    );
+    assert.ok(data.violations.length > 0, "axe still finds violations");
+    // headings + landmark extraction (NOT a job axe does) must survive removal.
+    assert.ok(Array.isArray(data.headings), "headings outline still produced");
+    assert.equal(
+      typeof data.stats.landmarkCount,
+      "number",
+      "landmarkCount still produced",
+    );
+  });
+
   it("clean page returns zero violations", () => {
     const output = run("scan", CLEAN_FIXTURE, "--json");
     const data = JSON.parse(output);

@@ -13,14 +13,14 @@ export async function scan(page) {
   // 1. DOM reading order
   const domOrder = await extractDomOrder(page);
 
-  // 2. Custom violation checks
+  // 2. Page structure (heading outline + landmark count — axe doesn't provide this)
   const custom = await page.evaluate(VIOLATION_CHECKS);
 
-  // 3. axe-core
+  // 3. axe-core (the sole detection engine)
   const axe = await runAxe(page);
 
-  // 4. Merge — deduplicate overlapping findings
-  const merged = mergeResults(custom.violations, axe.violations);
+  // 4. Violations — axe only
+  const merged = flattenAxeViolations(axe.violations);
 
   // 4b. axe "needs review" (incomplete) — not pass/fail, requires human judgment
   const needsReview = axe.incomplete.flatMap((rule) =>
@@ -230,38 +230,13 @@ function mapAxeFinding(rule, node, extras = {}) {
   };
 }
 
-function mergeResults(customViolations, axeViolations) {
+// Flatten axe violations into our finding shape, sorted critical-first.
+// (Detection is axe-only — the former hand-written custom rules were all
+// redundant with axe and were removed 2026-06-04.)
+function flattenAxeViolations(axeViolations) {
   const merged = [];
 
-  // Add all custom violations
-  for (const v of customViolations) {
-    merged.push({
-      source: "custom",
-      id: v.id,
-      severity: v.severity,
-      message: v.message,
-      wcag: v.wcag,
-      suggestion: v.suggestion,
-      element: v.element,
-    });
-  }
-
-  // Add axe violations, skipping duplicates
-  const customIds = new Set(customViolations.map((v) => v.id));
-  const AXE_TO_CUSTOM = {
-    "heading-order": "heading-skip",
-    "image-alt": "missing-alt",
-    "button-name": "missing-button-name",
-    "link-name": "missing-link-name",
-    label: "missing-form-label",
-    "landmark-one-main": "missing-main-landmark",
-    "aria-hidden-focus": "hidden-focusable",
-  };
-
   for (const axe of axeViolations) {
-    const mappedId = AXE_TO_CUSTOM[axe.id];
-    if (mappedId && customIds.has(mappedId)) continue; // already caught by custom check
-
     for (const node of axe.nodes) {
       merged.push(
         mapAxeFinding(axe, node, {
