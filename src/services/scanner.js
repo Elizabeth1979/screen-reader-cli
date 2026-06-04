@@ -24,16 +24,9 @@ export async function scan(page) {
 
   // 4b. axe "needs review" (incomplete) — not pass/fail, requires human judgment
   const needsReview = axe.incomplete.flatMap((rule) =>
-    rule.nodes.map((node) => ({
-      source: "axe-incomplete",
-      id: rule.id,
-      message: rule.help,
-      wcag:
-        rule.tags.find((t) => t.startsWith("wcag"))?.replace("wcag", "") || "",
-      suggestion: node.failureSummary || rule.description,
-      element: { selector: node.target?.[0] || "", html: node.html },
-      helpUrl: rule.helpUrl,
-    })),
+    rule.nodes.map((node) =>
+      mapAxeFinding(rule, node, { source: "axe-incomplete" }),
+    ),
   );
 
   // 5. Screenshot for visual report
@@ -220,6 +213,23 @@ const SEVERITY_MAP = {
   minor: "minor",
 };
 
+// Shape one axe rule+node pair into our canonical finding object.
+// Shared by the violations path (mergeResults) and the needs-review path,
+// so the two tiers can never drift in field shape. `extras` adds tier-specific
+// fields (e.g. `source`, `severity`).
+function mapAxeFinding(rule, node, extras = {}) {
+  return {
+    id: rule.id,
+    message: rule.help,
+    wcag:
+      rule.tags.find((t) => t.startsWith("wcag"))?.replace("wcag", "") || "",
+    suggestion: node.failureSummary || rule.description,
+    element: { selector: node.target?.[0] || "", html: node.html },
+    helpUrl: rule.helpUrl,
+    ...extras,
+  };
+}
+
 function mergeResults(customViolations, axeViolations) {
   const merged = [];
 
@@ -253,20 +263,12 @@ function mergeResults(customViolations, axeViolations) {
     if (mappedId && customIds.has(mappedId)) continue; // already caught by custom check
 
     for (const node of axe.nodes) {
-      merged.push({
-        source: "axe",
-        id: axe.id,
-        severity: SEVERITY_MAP[axe.impact] || "moderate",
-        message: axe.help,
-        wcag:
-          axe.tags.find((t) => t.startsWith("wcag"))?.replace("wcag", "") || "",
-        suggestion: node.failureSummary || axe.description,
-        element: {
-          selector: node.target?.[0] || "",
-          html: node.html,
-        },
-        helpUrl: axe.helpUrl,
-      });
+      merged.push(
+        mapAxeFinding(axe, node, {
+          source: "axe",
+          severity: SEVERITY_MAP[axe.impact] || "moderate",
+        }),
+      );
     }
   }
 

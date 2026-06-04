@@ -159,32 +159,48 @@ export function scanCommand() {
 function printTextReport(results) {
   console.log(`\nScreen Reader Scan: ${results.title}`);
   console.log(`URL: ${results.url}`);
+  const needsReviewCount = results.stats.needsReviewCount ?? 0;
   console.log(
-    `DOM elements: ${results.stats.domElements} | Headings: ${results.stats.headingCount} | Landmarks: ${results.stats.landmarkCount}`,
+    `DOM elements: ${results.stats.domElements} | Headings: ${results.stats.headingCount} | Landmarks: ${results.stats.landmarkCount} | Needs review: ${needsReviewCount}`,
   );
   console.log();
 
   if (results.violations.length === 0) {
     console.log("No screen reader violations found.");
-    return;
+  } else {
+    console.log(
+      `Found ${results.stats.violationCount} issues (${results.stats.critical} critical, ${results.stats.moderate} moderate, ${results.stats.minor} minor)\n`,
+    );
+
+    for (const v of results.violations) {
+      const sev =
+        v.severity === "critical"
+          ? "CRITICAL"
+          : v.severity === "moderate"
+            ? "MODERATE"
+            : "MINOR";
+      console.log(`  [${sev}] ${v.message}`);
+      if (v.element?.selector)
+        console.log(`    Element: ${v.element.selector}`);
+      if (v.wcag) console.log(`    WCAG: ${v.wcag}`);
+      if (v.suggestion) console.log(`    Fix: ${v.suggestion}`);
+      console.log();
+    }
   }
 
-  console.log(
-    `Found ${results.stats.violationCount} issues (${results.stats.critical} critical, ${results.stats.moderate} moderate, ${results.stats.minor} minor)\n`,
-  );
-
-  for (const v of results.violations) {
-    const sev =
-      v.severity === "critical"
-        ? "CRITICAL"
-        : v.severity === "moderate"
-          ? "MODERATE"
-          : "MINOR";
-    console.log(`  [${sev}] ${v.message}`);
-    if (v.element?.selector) console.log(`    Element: ${v.element.selector}`);
-    if (v.wcag) console.log(`    WCAG: ${v.wcag}`);
-    if (v.suggestion) console.log(`    Fix: ${v.suggestion}`);
-    console.log();
+  // axe "needs review" — flagged even when there are zero hard violations,
+  // so a needs-review-only page is never reported as fully clean.
+  if (needsReviewCount > 0) {
+    console.log(
+      `\n--- Needs Review (${needsReviewCount}) — axe could not auto-decide; verify manually ---\n`,
+    );
+    for (const r of results.needsReview) {
+      console.log(`  [REVIEW] ${r.message}`);
+      if (r.element?.selector)
+        console.log(`    Element: ${r.element.selector}`);
+      if (r.wcag) console.log(`    WCAG: ${r.wcag}`);
+      console.log();
+    }
   }
 
   console.log("--- Heading Structure ---");

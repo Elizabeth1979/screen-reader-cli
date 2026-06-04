@@ -17,6 +17,8 @@ function run(...args) {
   return execFileSync("node", [CLI, ...args], {
     encoding: "utf-8",
     timeout: 60_000,
+    // Never pop a real browser from the test suite (--visual path).
+    env: { ...process.env, SR_NO_OPEN: "1" },
   }).trim();
 }
 
@@ -53,6 +55,19 @@ describe("scan command — text output", () => {
     assert.ok(
       output.toLowerCase().includes("alt"),
       "should flag missing alt text",
+    );
+  });
+
+  it("renders a Needs Review section for axe incomplete findings", () => {
+    const fixture = `file://${path.resolve(__dirname, "fixtures/dangling-describedby.html")}`;
+    const output = run("scan", fixture);
+    assert.ok(
+      output.includes("Needs review:"),
+      "header should include the needs-review count",
+    );
+    assert.ok(
+      output.includes("Needs Review (") && output.includes("[REVIEW]"),
+      "should print a Needs Review section with [REVIEW] items",
     );
   });
 });
@@ -195,6 +210,49 @@ describe("scan command — local file paths", () => {
       "should find violations from relative path",
     );
   });
+});
+
+test("openReport launches via injected launcher by default, but skips it when SR_NO_OPEN is set", async () => {
+  const { openReport } = await import("../src/report/open.js");
+  const prev = process.env.SR_NO_OPEN;
+
+  const makeSpy = () => {
+    const calls = [];
+    return { fn: (fp) => calls.push(fp), calls };
+  };
+
+  try {
+    // Default (no env var): the injected launcher IS called, file written.
+    delete process.env.SR_NO_OPEN;
+    const spyA = makeSpy();
+    const pathA = openReport(
+      "<!doctype html><title>a</title>",
+      "sr-test-open-a.html",
+      spyA.fn,
+    );
+    assert.equal(
+      spyA.calls.length,
+      1,
+      "launches by default via injected launcher",
+    );
+    assert.ok(fs.existsSync(pathA), "report written (default)");
+    fs.unlinkSync(pathA);
+
+    // SR_NO_OPEN=1: launcher is NOT called, but file is still written.
+    process.env.SR_NO_OPEN = "1";
+    const spyB = makeSpy();
+    const pathB = openReport(
+      "<!doctype html><title>b</title>",
+      "sr-test-open-b.html",
+      spyB.fn,
+    );
+    assert.equal(spyB.calls.length, 0, "must not launch when SR_NO_OPEN=1");
+    assert.ok(fs.existsSync(pathB), "report still written (suppressed)");
+    fs.unlinkSync(pathB);
+  } finally {
+    if (prev === undefined) delete process.env.SR_NO_OPEN;
+    else process.env.SR_NO_OPEN = prev;
+  }
 });
 
 test("scan surfaces axe incomplete as needsReview (dangling describedby)", async () => {
