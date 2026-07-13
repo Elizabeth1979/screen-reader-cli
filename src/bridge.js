@@ -7,12 +7,28 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Read the VSR browser bundle once at module load time
 const VSR_BUNDLE_PATH = path.resolve(
   __dirname,
-  "../node_modules/@guidepup/virtual-screen-reader/lib/esm/index.browser.js"
+  "../node_modules/@guidepup/virtual-screen-reader/lib/esm/index.browser.js",
 );
 const VSR_BUNDLE = fs.readFileSync(VSR_BUNDLE_PATH, "utf-8");
 
-export async function createBridge(browser) {
-  const context = await browser.newContext({ bypassCSP: true });
+export async function createBridge(browser, opts = {}) {
+  const context = await browser.newContext({
+    bypassCSP: true,
+    // Some sites (e.g. Cloudflare-protected staging environments) block
+    // Playwright's default headless user agent; mimic a real Chrome UA.
+    userAgent:
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  });
+  // Seed localStorage before any page script runs, so authenticated SPAs
+  // (e.g. apps that read an access token from localStorage on boot) render
+  // their logged-in state instead of redirecting to a login page.
+  if (opts.localStorage?.length) {
+    await context.addInitScript((entries) => {
+      for (const [key, value] of entries) {
+        window.localStorage.setItem(key, value);
+      }
+    }, opts.localStorage);
+  }
   let page = null;
   let vsrStarted = false;
 
@@ -42,9 +58,11 @@ export async function createBridge(browser) {
     async openPage(url) {
       if (page) {
         if (vsrStarted) {
-          await page.evaluate(async () => {
-            await window.__vsr.stop();
-          }).catch(() => {});
+          await page
+            .evaluate(async () => {
+              await window.__vsr.stop();
+            })
+            .catch(() => {});
           vsrStarted = false;
         }
       } else {
@@ -128,7 +146,10 @@ export async function createBridge(browser) {
         return {
           tagName: node.tagName || node.nodeName,
           role: node.getAttribute?.("role") || null,
-          name: node.getAttribute?.("aria-label") || node.textContent?.slice(0, 100) || null,
+          name:
+            node.getAttribute?.("aria-label") ||
+            node.textContent?.slice(0, 100) ||
+            null,
         };
       });
     },
@@ -136,7 +157,9 @@ export async function createBridge(browser) {
     async screenshotActiveNode(outputPath) {
       const handle = await page.evaluateHandle(() => {
         const node = window.__vsr.activeNode;
-        return node instanceof Element ? node : node?.parentElement || document.body;
+        return node instanceof Element
+          ? node
+          : node?.parentElement || document.body;
       });
       const element = handle.asElement();
       if (element) {
@@ -158,9 +181,11 @@ export async function createBridge(browser) {
 
     async close() {
       if (vsrStarted && page) {
-        await page.evaluate(async () => {
-          await window.__vsr.stop();
-        }).catch(() => {});
+        await page
+          .evaluate(async () => {
+            await window.__vsr.stop();
+          })
+          .catch(() => {});
       }
       await context.close();
     },

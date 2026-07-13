@@ -11,6 +11,16 @@ import {
   resolveProviderAndModel,
 } from "../services/ai-analyzer.js";
 
+// Parses "key=value" for a repeatable Commander option, accumulating pairs.
+function collectKeyValue(value, previous) {
+  const eq = value.indexOf("=");
+  if (eq === -1) {
+    throw new Error(`Expected key=value, got "${value}"`);
+  }
+  previous.push([value.slice(0, eq), value.slice(eq + 1)]);
+  return previous;
+}
+
 export function scanCommand() {
   return new Command("scan")
     .description(
@@ -52,9 +62,58 @@ export function scanCommand() {
         '(e.g. "[role=dialog]" for a modal, "[role=menu]" for a menu). ' +
         "Falls back to --open-wait on timeout or when omitted.",
     )
+    .option(
+      "--local-storage <key=value>",
+      "Seed localStorage before the page loads (e.g. an auth token an SPA " +
+        "reads on boot). Repeatable.",
+      collectKeyValue,
+      [],
+    )
+    .option(
+      "--settle <ms>",
+      "Extra wait after page load, for SPAs with multi-step client-side " +
+        "auth redirects that outlast the default 2s render wait.",
+    )
+    .option(
+      "--chrome-profile [path]",
+      "Launch using a real Chrome user-data directory instead of a fresh " +
+        "browser, so the scan reuses its cookies/login session. Defaults to " +
+        "the OS default Chrome profile if no path is given. Chrome must be " +
+        "fully quit first — it locks the profile directory while running.",
+    )
     .action(async (url, opts) => {
-      const browser = await chromium.launch({ headless: true });
-      const context = await browser.newContext();
+      const CHROME_UA =
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
+      let browser = null;
+      let context;
+      if (opts.chromeProfile !== undefined) {
+        const profileDir =
+          typeof opts.chromeProfile === "string"
+            ? opts.chromeProfile
+            : path.join(
+                process.env.HOME || "",
+                "Library/Application Support/Google/Chrome/Default",
+              );
+        context = await chromium.launchPersistentContext(profileDir, {
+          headless: false,
+          userAgent: CHROME_UA,
+        });
+      } else {
+        browser = await chromium.launch({ headless: true });
+        context = await browser.newContext({
+          // Some sites (e.g. Cloudflare-protected staging environments) block
+          // Playwright's default headless user agent; mimic a real Chrome UA.
+          userAgent: CHROME_UA,
+        });
+      }
+      if (opts.localStorage.length) {
+        await context.addInitScript((entries) => {
+          for (const [key, value] of entries) {
+            window.localStorage.setItem(key, value);
+          }
+        }, opts.localStorage);
+      }
       const page = await context.newPage();
 
       try {
@@ -68,6 +127,12 @@ export function scanCommand() {
         });
         // Wait a bit for JS-rendered content
         await page.waitForTimeout(2000);
+        // --settle: extra wait for SPAs with multi-step client-side auth
+        // redirects (e.g. token exchange -> navigate) that outlast the
+        // fixed 2s above.
+        if (opts.settle) {
+          await page.waitForTimeout(parseInt(opts.settle, 10));
+        }
 
         // --open: click to reveal an overlay whose contents axe can't see while closed.
         if (opts.open) {
@@ -140,7 +205,7 @@ export function scanCommand() {
         }
       } finally {
         await context.close();
-        await browser.close();
+        if (browser) await browser.close();
       }
     });
 }

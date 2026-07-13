@@ -2,6 +2,16 @@ import { Command } from "commander";
 import { startDaemon, connectBrowser, stopDaemon } from "../daemon.js";
 import { createBridge } from "../bridge.js";
 
+// Parses "key=value" for a repeatable Commander option, accumulating pairs.
+function collectKeyValue(value, previous) {
+  const eq = value.indexOf("=");
+  if (eq === -1) {
+    throw new Error(`Expected key=value, got "${value}"`);
+  }
+  previous.push([value.slice(0, eq), value.slice(eq + 1)]);
+  return previous;
+}
+
 export function auditCommand() {
   const audit = new Command("audit")
     .description("Full screen reader traversal of a page")
@@ -9,10 +19,19 @@ export function auditCommand() {
     .option("--summary", "Include heading structure and landmark summary")
     .option("--json", "Output as JSON")
     .option("--max <n>", "Maximum elements to traverse", parseInt, 500)
+    .option(
+      "--local-storage <key=value>",
+      "Seed localStorage before the page loads (e.g. an auth token an SPA " +
+        "reads on boot). Repeatable.",
+      collectKeyValue,
+      [],
+    )
     .action(async (url, opts) => {
       await startDaemon();
       const browser = await connectBrowser();
-      const bridge = await createBridge(browser);
+      const bridge = await createBridge(browser, {
+        localStorage: opts.localStorage,
+      });
 
       try {
         await bridge.openPage(url);
@@ -28,7 +47,10 @@ export function auditCommand() {
 
           if (opts.summary) {
             const lower = phrase.toLowerCase();
-            if (lower.includes("heading,") || lower.match(/heading.*level \d/)) {
+            if (
+              lower.includes("heading,") ||
+              lower.match(/heading.*level \d/)
+            ) {
               headings.push(phrase);
             }
             if (
