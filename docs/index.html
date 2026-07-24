@@ -328,6 +328,55 @@
     }
     code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
 
+    kbd {
+      font-family: inherit;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 6px;
+      padding: 1px 8px;
+      font-size: 14px;
+    }
+    /* A visual-only sketch of the local dashboard */
+    .mock {
+      background: #f7f5f0;
+      color: #1a1d21;
+      border-radius: 12px;
+      padding: 18px;
+      margin-top: 12px;
+      max-width: 430px;
+    }
+    .mock-title {
+      font-family: Fraunces, Georgia, serif;
+      font-weight: 650;
+      font-size: 17px;
+      margin-bottom: 10px;
+    }
+    .mock-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .mock-input {
+      flex: 1 1 200px;
+      background: #ffffff;
+      border: 2px solid #dcd8cf;
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 14px;
+      color: #4d545e;
+    }
+    .mock-btn {
+      background: #0e5e6f;
+      color: #ffffff;
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 7px 18px;
+      font-size: 14px;
+    }
+    .mock-result {
+      margin-top: 12px;
+      font-size: 14px;
+      background: #f7e8e5;
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+
     .proof {
       display: flex;
       gap: 18px;
@@ -478,26 +527,41 @@
 
     <section class="band dark" id="get-started" aria-labelledby="start-title">
       <div class="wrap">
-        <h2 id="start-title">Run your first check in three steps</h2>
-        <p class="section-note">You'll need Node.js installed (nodejs.org — choose the LTS version). Then open your terminal — on a Mac: press Command + Space and type “Terminal”.</p>
+        <h2 id="start-title">Set up once, then it's point-and-click</h2>
+        <p class="section-note"><strong style="color:#f6f5f2;">Where is the dashboard?</strong> On your computer — not on this website. This page is just the guide. After the one-time setup below, typing <code>sr</code> opens your personal dashboard in your browser, with a Scan button and reports. The terminal is only for setup and for those two letters.</p>
         <ol class="steps">
           <li>
-            <h3>Install the tool (one time)</h3>
-            <p>Copy this line into the terminal and press Enter. It downloads the tool and the browser it uses.</p>
-            <pre><code>git clone https://github.com/Elizabeth1979/screen-reader-cli.git
-cd screen-reader-cli &amp;&amp; npm install &amp;&amp; npx playwright install chromium &amp;&amp; npm link</code></pre>
+            <h3>Install Node.js (one time)</h3>
+            <p>Go to <a href="https://nodejs.org">nodejs.org</a>, download the version marked <strong>LTS</strong>, and install it like any app — next, next, done.</p>
           </li>
           <li>
-            <h3>Scan a page</h3>
-            <p>Any public page works. The report opens in your browser — no reading code required.</p>
-            <pre><code>screenreader scan https://your-website.com --visual</code></pre>
+            <h3>Open your terminal (one time)</h3>
+            <p>Mac: press <kbd>Command</kbd> + <kbd>Space</kbd>, type <strong>Terminal</strong>, press Enter. Windows: open the Start menu, type <strong>PowerShell</strong>, press Enter. A plain text window opens — that's all it is.</p>
           </li>
           <li>
-            <h3>Read the report</h3>
-            <p>Issues are sorted by severity, each with the element, what a screen reader hears, and the suggested fix. Share the report file with your team — it's a single HTML page.</p>
+            <h3>Paste these two lines (one time)</h3>
+            <p>Copy them into the terminal and press Enter. The first installs the tool, the second downloads the browser it scans with. Takes a few minutes.</p>
+            <pre><code>npm install -g screen-reader-cli
+npx playwright install chromium</code></pre>
+          </li>
+          <li>
+            <h3>Type <code>sr</code> — the dashboard opens</h3>
+            <p>That's the whole command: the letters <strong>s r</strong>, then Enter. Your browser opens a control panel that looks like this:</p>
+            <div class="mock" role="img" aria-label="The dashboard: a heading that says Scan a page, a text field containing a page address, a Scan button, and a result line with a link labeled Open the full report">
+              <div class="mock-title" aria-hidden="true">Scan a page</div>
+              <div class="mock-row" aria-hidden="true">
+                <span class="mock-input">https://your-website.com</span>
+                <span class="mock-btn">Scan</span>
+              </div>
+              <div class="mock-result" aria-hidden="true">3 critical · 5 moderate — <u>Open the full report ↗</u></div>
+            </div>
+          </li>
+          <li>
+            <h3>Scan, read, share</h3>
+            <p>Type any page address, press <strong>Scan</strong>, wait ~10 seconds, and click <strong>Open the full report</strong>. Issues are sorted by severity, each with the element, what a screen reader hears, and the suggested fix.</p>
+            <p>From now on, using the tool is: open terminal → type <code>sr</code> → everything else is clicking.</p>
           </li>
         </ol>
-        <p class="section-note" style="margin-top:28px; margin-bottom:0;">Prefer buttons over commands? After step 1, just type <code>sr</code> — a control panel opens in your browser, and every scan after that is point-and-click.</p>
       </div>
     </section>
 

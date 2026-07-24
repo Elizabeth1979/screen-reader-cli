@@ -34,6 +34,16 @@ screen reader, which only exists on macOS (VoiceOver) and Windows (NVDA).
 
 ```bash
 # Requires Node.js 20+
+npm install -g screen-reader-cli
+npx playwright install chromium   # one-time browser download
+```
+
+Then type `sr` to open the dashboard, or use the `screenreader` CLI directly.
+
+<details>
+<summary>Installing from source (for contributors)</summary>
+
+```bash
 git clone https://github.com/Elizabeth1979/screen-reader-cli.git
 cd screen-reader-cli
 npm install
@@ -41,9 +51,7 @@ npx playwright install chromium
 npm link
 ```
 
-> Once the package is published to npm this becomes
-> `npm install -g screen-reader-cli` (or one-off: `npx screen-reader-cli scan <url>`),
-> followed by `npx playwright install chromium`.
+</details>
 
 ### Live mode setup (optional — for real screen reader testing)
 
