@@ -92,6 +92,7 @@ Scans a page for screen-reader-specific violations using custom DOM checks + axe
 ```bash
 screenreader scan <url>                                    # Text report in terminal
 screenreader scan <url> --json                             # JSON (for CI)
+screenreader scan <url> --fail-on critical                 # Exit 1 if critical violations (CI gate)
 screenreader scan <url> --visual                           # HTML report opens in browser
 screenreader scan <url> --test                             # Generate Playwright test file
 screenreader scan <url> --test --framework vitest          # Generate Vitest stubs
@@ -130,6 +131,33 @@ Works with URLs and local files:
 ```bash
 screenreader scan test/fixtures/violations.html
 ```
+
+#### CI usage (`--fail-on`)
+
+`--fail-on <severity>` makes `scan` exit with code 1 when violations at or
+above that severity are found, so it can gate a pipeline:
+
+- `--fail-on critical` — fail only on critical violations
+- `--fail-on moderate` — fail on critical or moderate
+- `--fail-on minor` — fail on any violation
+
+GitHub Actions example:
+
+```yaml
+jobs:
+  a11y:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install -g screen-reader-cli
+      - run: npx playwright install --with-deps chromium
+      - name: Accessibility gate
+        run: screenreader scan https://staging.example.com --fail-on critical
+```
+
+Combine with `--json` to also archive the full results as a build artifact.
 
 ### `live` — Real screen reader testing
 

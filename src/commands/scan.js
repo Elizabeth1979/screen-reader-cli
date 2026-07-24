@@ -13,6 +13,10 @@ import {
 } from "../services/ai-analyzer.js";
 import { CHROME_UA, collectKeyValue } from "../util.js";
 
+// Lower rank = more severe. --fail-on <s> fails when any violation's rank
+// is <= the threshold's rank.
+const SEVERITY_RANK = { critical: 0, moderate: 1, minor: 2 };
+
 export function scanCommand() {
   return new Command("scan")
     .description(
@@ -67,6 +71,12 @@ export function scanCommand() {
         "auth redirects that outlast the default 2s render wait.",
     )
     .option(
+      "--fail-on <severity>",
+      "Exit with code 1 if violations at or above this severity are found: " +
+        "critical, moderate, or minor (minor = fail on any violation). " +
+        "For CI pipelines.",
+    )
+    .option(
       "--chrome-profile [path]",
       "Launch using a real Chrome user-data directory instead of a fresh " +
         "browser, so the scan reuses its cookies/login session. Defaults to " +
@@ -74,6 +84,13 @@ export function scanCommand() {
         "fully quit first — it locks the profile directory while running.",
     )
     .action(async (url, opts) => {
+      // Validate before launching a browser so a typo fails fast.
+      if (opts.failOn && !(opts.failOn in SEVERITY_RANK)) {
+        throw new Error(
+          `--fail-on must be one of critical, moderate, minor (got "${opts.failOn}")`,
+        );
+      }
+
       let browser = null;
       let context;
       if (opts.chromeProfile !== undefined) {
@@ -187,6 +204,19 @@ export function scanCommand() {
             console.log(`\nTest file written: ${outPath}`);
           } else {
             console.log("\nNo violations found — no test file generated.");
+          }
+        }
+
+        if (opts.failOn) {
+          const threshold = SEVERITY_RANK[opts.failOn];
+          const failing = results.violations.filter(
+            (v) => (SEVERITY_RANK[v.severity] ?? SEVERITY_RANK.moderate) <= threshold,
+          ).length;
+          if (failing > 0) {
+            process.stderr.write(
+              `\n--fail-on ${opts.failOn}: ${failing} violation(s) at or above "${opts.failOn}" severity.\n`,
+            );
+            process.exitCode = 1;
           }
         }
       } finally {
