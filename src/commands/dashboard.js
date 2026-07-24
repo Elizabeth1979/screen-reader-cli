@@ -140,34 +140,60 @@ export function createDashboardServer() {
   return { server, reports };
 }
 
+// Listen on startPort, or walk up to the next free port if it's busy
+// (up to `tries` attempts). Resolves with the port actually bound.
+// Exported for tests.
+export function listenWithFallback(server, startPort, host, tries = 10) {
+  return new Promise((resolve, reject) => {
+    let port = startPort;
+    let attempts = 0;
+    const onError = (err) => {
+      if (err.code === "EADDRINUSE" && attempts < tries - 1) {
+        attempts++;
+        port++;
+        server.once("error", onError);
+        server.listen(port, host);
+        return;
+      }
+      reject(err);
+    };
+    server.once("error", onError);
+    server.once("listening", () => {
+      server.removeListener("error", onError);
+      resolve(port);
+    });
+    server.listen(port, host);
+  });
+}
+
 export function dashboardCommand() {
   return new Command("dashboard")
     .description(
       "Open a local dashboard — run scans from your browser, no terminal needed after launch",
     )
-    .option("--port <n>", "Port to listen on", "4747")
-    .action((opts) => {
+    .option("--port <n>", "Preferred port (a nearby free one is used if busy)", "4747")
+    .action(async (opts) => {
       const { server } = createDashboardServer();
-      const port = parseInt(opts.port, 10);
-      server.listen(port, "127.0.0.1", () => {
-        const address = `http://localhost:${port}`;
-        console.log(`Dashboard running at ${address}`);
-        console.log("Leave this window open. Press Ctrl+C to stop.");
-        if (!process.env.SR_NO_OPEN) {
-          try {
-            openExternal(address);
-          } catch {
-            console.log(`Open ${address} in your browser to get started.`);
-          }
-        }
-      });
-      server.on("error", (err) => {
-        console.error(
-          err.code === "EADDRINUSE"
-            ? `Port ${port} is busy — try: screenreader dashboard --port ${port + 1}`
-            : `Dashboard error: ${err.message}`,
-        );
+      const wanted = parseInt(opts.port, 10);
+      let port;
+      try {
+        port = await listenWithFallback(server, wanted, "127.0.0.1");
+      } catch (err) {
+        console.error(`Dashboard error: ${err.message}`);
         process.exit(1);
-      });
+      }
+      const address = `http://localhost:${port}`;
+      if (port !== wanted) {
+        console.log(`Port ${wanted} was busy — using ${port} instead.`);
+      }
+      console.log(`Dashboard running at ${address}`);
+      console.log("Leave this window open. Press Ctrl+C to stop.");
+      if (!process.env.SR_NO_OPEN) {
+        try {
+          openExternal(address);
+        } catch {
+          console.log(`Open ${address} in your browser to get started.`);
+        }
+      }
     });
 }
