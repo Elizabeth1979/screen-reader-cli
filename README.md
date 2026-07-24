@@ -92,6 +92,7 @@ Scans a page for screen-reader-specific violations using custom DOM checks + axe
 ```bash
 screenreader scan <url>                                    # Text report in terminal
 screenreader scan <url> --json                             # JSON (for CI)
+screenreader scan <url> --fail-on critical                 # Exit 1 if critical violations (CI gate)
 screenreader scan <url> --visual                           # HTML report opens in browser
 screenreader scan <url> --test                             # Generate Playwright test file
 screenreader scan <url> --test --framework vitest          # Generate Vitest stubs
@@ -130,6 +131,33 @@ Works with URLs and local files:
 ```bash
 screenreader scan test/fixtures/violations.html
 ```
+
+#### CI usage (`--fail-on`)
+
+`--fail-on <severity>` makes `scan` exit with code 1 when violations at or
+above that severity are found, so it can gate a pipeline:
+
+- `--fail-on critical` — fail only on critical violations
+- `--fail-on moderate` — fail on critical or moderate
+- `--fail-on minor` — fail on any violation
+
+GitHub Actions example:
+
+```yaml
+jobs:
+  a11y:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install -g screen-reader-cli
+      - run: npx playwright install --with-deps chromium
+      - name: Accessibility gate
+        run: screenreader scan https://staging.example.com --fail-on critical
+```
+
+Combine with `--json` to also archive the full results as a build artifact.
 
 ### `live` — Real screen reader testing
 
@@ -285,6 +313,72 @@ The Virtual Screen Reader implements the same [W3C accessibility specifications]
 - AI analysis (`--ai`) sends scan results (violation messages, selectors, page
   title/URL) to the provider you select. Use `--provider ollama` to keep
   everything local.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    CLI["bin/cli.js\n(commander)"]
+
+    CLI --> SCAN["scan"]
+    CLI --> VIRT["page · nav · speak\naudit · repl"]
+    CLI --> LIVE["live"]
+
+    SCAN --> PW["Playwright\nheadless Chromium"]
+    PW --> AXE["axe-core\nWCAG 2 AA rules"]
+    PW --> STRUCT["headings · landmarks\nDOM reading order"]
+    AXE --> MERGE["merge + dedupe\n(scanner.js)"]
+    STRUCT --> MERGE
+    MERGE --> TEXT["text report"]
+    MERGE --> JSON["--json"]
+    MERGE --> HTML["--visual HTML report"]
+    MERGE --> TESTS["--test generated tests"]
+    MERGE --> AI["--ai analysis\nGemini · Claude · GPT · Ollama"]
+
+    VIRT --> BRIDGE["bridge.js\nVirtual Screen Reader"]
+    BRIDGE --> PW2["Playwright\nheadless Chromium"]
+
+    LIVE --> GP["Guidepup"]
+    GP --> VO["VoiceOver (macOS)"]
+    GP --> NVDA["NVDA (Windows)"]
+```
+
+Three engines, one CLI:
+
+1. **Scan** — Playwright loads the page, axe-core finds violations, custom code
+   extracts structure, and everything merges into one report (text, JSON, HTML,
+   generated tests, or AI analysis).
+2. **Virtual** — the Virtual Screen Reader is injected into the page so
+   `nav`/`audit`/`speak` can traverse it the way a screen reader would.
+3. **Live** — Guidepup drives the real OS screen reader so you hear actual
+   announcements.
+
+## Roadmap
+
+Recently shipped:
+
+- [x] `--fail-on <severity>` exit-code gate for CI pipelines
+- [x] Cross-platform support for `--visual` reports (macOS/Windows/Linux)
+- [x] Real assertions in `--test` generated files
+
+Planned (roughly in order):
+
+- [ ] **Element screenshots** — capture an image of each failing element and
+      embed it in the visual report
+- [ ] **Flow capture** — screenshot each step of a multi-page/multi-step flow
+      as it's scanned
+- [ ] **Violation context** — include the DOM path and accessibility-tree node
+      for each violation in reports (today: selector + HTML snippet)
+- [ ] **Richer AI fix suggestions** — per-violation code-level fixes with the
+      element's full context (today: `--ai` gives prioritized fixes + a score)
+- [ ] **Asset capture** — download page images during a scan for audit evidence
+- [ ] **Multi-page crawling** — scan a whole site from a sitemap or crawl
+- [ ] **Baseline & diff** — fail CI only on *new* violations
+- [ ] **GitHub Action** — a published action wrapping `scan --fail-on`
+- [ ] **Screen reader transcript diff** — compare what's announced before vs.
+      after a change
+
+Suggestions welcome — [open an issue](https://github.com/Elizabeth1979/screen-reader-cli/issues).
 
 ## Use cases
 

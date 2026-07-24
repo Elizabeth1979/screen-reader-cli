@@ -220,6 +220,63 @@ describe("scan command — test generation", () => {
   });
 });
 
+describe("scan command — --fail-on", () => {
+  function runExpectingFailure(...args) {
+    try {
+      run(...args);
+      return null;
+    } catch (err) {
+      return err;
+    }
+  }
+
+  it("exits 1 when violations meet the threshold", () => {
+    const err = runExpectingFailure(
+      "scan",
+      VIOLATIONS_FIXTURE,
+      "--fail-on",
+      "critical",
+    );
+    assert.ok(err, "should exit non-zero on critical violations");
+    assert.equal(err.status, 1, "exit code should be 1");
+    assert.ok(
+      err.stderr.toString().includes("--fail-on critical"),
+      "stderr should explain the failure",
+    );
+  });
+
+  it("exits 1 with minor threshold on any violation", () => {
+    const err = runExpectingFailure(
+      "scan",
+      VIOLATIONS_FIXTURE,
+      "--fail-on",
+      "minor",
+    );
+    assert.ok(err, "minor threshold should fail on any violation");
+    assert.equal(err.status, 1);
+  });
+
+  it("exits 0 on a clean page", () => {
+    const output = run("scan", CLEAN_FIXTURE, "--fail-on", "minor");
+    assert.ok(output.includes("Screen Reader Scan:"), "scan still prints");
+  });
+
+  it("rejects an unknown severity before scanning", () => {
+    const err = runExpectingFailure(
+      "scan",
+      VIOLATIONS_FIXTURE,
+      "--fail-on",
+      "bogus",
+    );
+    assert.ok(err, "unknown severity should fail");
+    assert.equal(err.status, 1);
+    assert.ok(
+      err.stderr.toString().includes("--fail-on must be one of"),
+      "should print a validation message",
+    );
+  });
+});
+
 describe("scan command — visual report", () => {
   it("generates HTML report with --visual", () => {
     // We can't easily test that it opens in browser, but we can verify
