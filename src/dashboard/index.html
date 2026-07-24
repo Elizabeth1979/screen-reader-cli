@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>screen-reader-cli dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;family=Fraunces:opsz,wght@9..144,650&amp;display=swap">
+  <style>
+    :root {
+      --paper: #f7f5f0;
+      --ink: #1a1d21;
+      --ink-soft: #4d545e;
+      --accent: #0e5e6f;
+      --accent-deep: #0a4653;
+      --accent-wash: #e2edef;
+      --caption: #17191d;
+      --caption-text: #f6f5f2;
+      --good: #1e6b34;
+      --good-wash: #e2f0e5;
+      --warn: #8a5a00;
+      --warn-wash: #f7eeda;
+      --bad: #9c3327;
+      --bad-wash: #f7e8e5;
+      --line: #dcd8cf;
+      --card: #fffefb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Atkinson Hyperlegible", system-ui, sans-serif;
+      font-size: 17px;
+      line-height: 1.55;
+    }
+    main { max-width: 860px; margin: 0 auto; padding: 40px 22px 80px; }
+    a { color: var(--accent); }
+    :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+    h1 {
+      font-family: Fraunces, Georgia, serif;
+      font-weight: 650;
+      font-size: 32px;
+      margin: 0 0 4px;
+      letter-spacing: -0.01em;
+    }
+    .sub { color: var(--ink-soft); margin: 0 0 30px; }
+
+    form {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 20px;
+    }
+    .field { flex: 1 1 340px; }
+    label { display: block; font-weight: 700; font-size: 15px; margin-bottom: 6px; }
+    input[type="url"], input[type="text"] {
+      width: 100%;
+      font: inherit;
+      padding: 11px 14px;
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      background: #ffffff;
+      color: var(--ink);
+    }
+    input:focus { border-color: var(--accent); outline: none; }
+    button {
+      font: inherit;
+      font-weight: 700;
+      background: var(--accent);
+      color: #ffffff;
+      border: 2px solid var(--accent);
+      border-radius: 999px;
+      padding: 11px 26px;
+      cursor: pointer;
+    }
+    button:hover { background: var(--accent-deep); border-color: var(--accent-deep); }
+    button[disabled] { opacity: 0.6; cursor: wait; }
+
+    #status {
+      min-height: 28px;
+      margin: 14px 2px 0;
+      font-size: 15.5px;
+      color: var(--ink-soft);
+    }
+    #status .err { color: var(--bad); font-weight: 700; }
+
+    .result {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 20px;
+      margin-top: 18px;
+      display: none;
+    }
+    .result.show { display: block; }
+    .result h2 {
+      font-family: Fraunces, Georgia, serif;
+      font-size: 21px;
+      margin: 0 0 12px;
+      overflow-wrap: anywhere;
+    }
+    .chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .chip {
+      border-radius: 999px;
+      padding: 5px 14px;
+      font-size: 14.5px;
+      font-weight: 700;
+    }
+    .chip.crit { background: var(--bad-wash); color: var(--bad); }
+    .chip.mod { background: var(--warn-wash); color: var(--warn); }
+    .chip.min { background: var(--accent-wash); color: var(--accent-deep); }
+    .chip.clean { background: var(--good-wash); color: var(--good); }
+
+    h2.history { font-family: Fraunces, Georgia, serif; font-size: 22px; margin: 44px 0 4px; }
+    .history-note { color: var(--ink-soft); font-size: 14.5px; margin: 0 0 14px; }
+    table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+    th, td { text-align: left; padding: 11px 14px; font-size: 15px; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+    thead th { border-top: 0; background: var(--accent-wash); font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.06em; }
+    td.num { font-variant-numeric: tabular-nums; }
+    .empty { color: var(--ink-soft); font-size: 15px; padding: 16px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Scan a page</h1>
+    <p class="sub">Type any page address, press Scan, and get the full accessibility report — no commands needed.</p>
+
+    <form id="scan-form">
+      <div class="field">
+        <label for="url">Page address</label>
+        <input id="url" name="url" type="text" placeholder="https://your-website.com" required autocomplete="url">
+      </div>
+      <button id="go" type="submit">Scan</button>
+    </form>
+
+    <p id="status" role="status" aria-live="polite"></p>
+
+    <section class="result" id="result" aria-labelledby="result-title">
+      <h2 id="result-title"></h2>
+      <div class="chips" id="chips"></div>
+      <p><a id="report-link" href="#" target="_blank" rel="noopener">Open the full report ↗</a></p>
+    </section>
+
+    <h2 class="history">Previous scans</h2>
+    <p class="history-note">Kept while the dashboard is running. Close the terminal window and the history clears.</p>
+    <div id="history"><p class="empty">No scans yet — your results will appear here.</p></div>
+  </main>
+
+  <script>
+    const form = document.getElementById("scan-form");
+    const urlInput = document.getElementById("url");
+    const go = document.getElementById("go");
+    const status = document.getElementById("status");
+    const result = document.getElementById("result");
+    const resultTitle = document.getElementById("result-title");
+    const chips = document.getElementById("chips");
+    const reportLink = document.getElementById("report-link");
+    const history = document.getElementById("history");
+
+    function chip(cls, text) {
+      const el = document.createElement("span");
+      el.className = "chip " + cls;
+      el.textContent = text;
+      return el;
+    }
+
+    function showResult(scan) {
+      resultTitle.textContent = scan.title || scan.url;
+      chips.replaceChildren();
+      const s = scan.stats;
+      if (s.violationCount === 0) {
+        chips.append(chip("clean", "No violations found"));
+      } else {
+        if (s.critical) chips.append(chip("crit", s.critical + " critical"));
+        if (s.moderate) chips.append(chip("mod", s.moderate + " moderate"));
+        if (s.minor) chips.append(chip("min", s.minor + " minor"));
+      }
+      if (s.needsReviewCount) {
+        chips.append(chip("min", s.needsReviewCount + " to review manually"));
+      }
+      reportLink.href = "/report/" + scan.id;
+      result.classList.add("show");
+    }
+
+    async function refreshHistory() {
+      const res = await fetch("/api/scans");
+      const { scans } = await res.json();
+      if (!scans.length) return;
+      const table = document.createElement("table");
+      table.innerHTML =
+        "<thead><tr><th scope='col'>Page</th><th scope='col'>Issues</th><th scope='col'>Report</th></tr></thead>";
+      const tbody = document.createElement("tbody");
+      for (const scanEntry of scans) {
+        const tr = document.createElement("tr");
+        const tdPage = document.createElement("td");
+        tdPage.textContent = scanEntry.title || scanEntry.url;
+        const tdCount = document.createElement("td");
+        tdCount.className = "num";
+        tdCount.textContent = scanEntry.stats.violationCount;
+        const tdLink = document.createElement("td");
+        const a = document.createElement("a");
+        a.href = "/report/" + scanEntry.id;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.textContent = "Open ↗";
+        tdLink.append(a);
+        tr.append(tdPage, tdCount, tdLink);
+        tbody.append(tr);
+      }
+      table.append(tbody);
+      history.replaceChildren(table);
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const url = urlInput.value.trim();
+      if (!url) return;
+      go.disabled = true;
+      result.classList.remove("show");
+      status.textContent = "Scanning… this usually takes 5–15 seconds.";
+      try {
+        const res = await fetch("/api/scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          status.innerHTML = "";
+          const err = document.createElement("span");
+          err.className = "err";
+          err.textContent = data.error || "Something went wrong.";
+          status.append(err);
+          return;
+        }
+        status.textContent = "Done.";
+        showResult(data);
+        refreshHistory();
+      } catch {
+        status.textContent = "";
+        const err = document.createElement("span");
+        err.className = "err";
+        err.textContent = "The dashboard server stopped — restart it with: screenreader dashboard";
+        status.append(err);
+      } finally {
+        go.disabled = false;
+      }
+    });
+
+    refreshHistory();
+  </script>
+</body>
+</html>

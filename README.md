@@ -161,6 +161,21 @@ jobs:
 
 Combine with `--json` to also archive the full results as a build artifact.
 
+### `dashboard` — Point-and-click scanning
+
+Prefer buttons over commands? Start the dashboard once and run every scan
+from your browser:
+
+```bash
+screenreader dashboard              # opens http://localhost:4747
+screenreader dashboard --port 5000  # pick another port
+```
+
+Type a page address, press **Scan**, and the results appear with a link to
+the full visual report. A history of past scans is kept while the dashboard
+is running. Everything stays on your machine — the dashboard only listens on
+localhost.
+
 ### `live` — Real screen reader testing
 
 Drives **VoiceOver** (macOS) or **NVDA** (Windows) on a real page. Auto-detects your OS, or override with `--reader`.
@@ -362,6 +377,8 @@ Recently shipped:
 - [x] `--fail-on <severity>` exit-code gate for CI pipelines
 - [x] Cross-platform support for `--visual` reports (macOS/Windows/Linux)
 - [x] Real assertions in `--test` generated files
+- [x] Local dashboard (`screenreader dashboard`) — scan from the browser,
+      no terminal after launch
 
 Planned (roughly in order):
 
