@@ -4,10 +4,15 @@ import os from "node:os";
 import { execFileSync } from "node:child_process";
 
 function defaultLaunch(filePath) {
-  const cmd = process.platform === "darwin" ? "open" : "cmd";
-  const args =
-    process.platform === "darwin" ? [filePath] : ["/c", "start", filePath];
-  execFileSync(cmd, args);
+  if (process.platform === "darwin") {
+    execFileSync("open", [filePath]);
+  } else if (process.platform === "win32") {
+    // The empty string is start's window-title argument — without it a
+    // quoted path would be consumed as the title instead of the file.
+    execFileSync("cmd", ["/c", "start", "", filePath]);
+  } else {
+    execFileSync("xdg-open", [filePath]);
+  }
 }
 
 export function openReport(

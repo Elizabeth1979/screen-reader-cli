@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { CHROME_UA } from "./util.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -14,10 +15,7 @@ const VSR_BUNDLE = fs.readFileSync(VSR_BUNDLE_PATH, "utf-8");
 export async function createBridge(browser, opts = {}) {
   const context = await browser.newContext({
     bypassCSP: true,
-    // Some sites (e.g. Cloudflare-protected staging environments) block
-    // Playwright's default headless user agent; mimic a real Chrome UA.
-    userAgent:
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    userAgent: CHROME_UA,
   });
   // Seed localStorage before any page script runs, so authenticated SPAs
   // (e.g. apps that read an access token from localStorage on boot) render

@@ -3,3 +3,16 @@ screenshot.png
 *.png
 !test/fixtures/**
 docs/superpowers/
+
+# Environment files (AI provider API keys)
+.env
+.env.*
+
+# Generated audit output (companion skill default output dir)
+sr-output/
+a11y-regression.test.js
+
+# Editor / OS junk
+.DS_Store
+.vscode/
+.idea/

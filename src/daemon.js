@@ -34,7 +34,7 @@ export async function stopDaemon() {
 export async function connectBrowser() {
   const state = readState();
   if (!state) {
-    throw new Error("No running daemon. Run `screenreader daemon start` first.");
+    throw new Error("Browser is not running — this is a bug in the calling command.");
   }
   return chromium.connect(state.wsEndpoint);
 }
@@ -42,8 +42,4 @@ export async function connectBrowser() {
 function readState() {
   if (!fs.existsSync(STATE_FILE)) return null;
   return JSON.parse(fs.readFileSync(STATE_FILE, "utf-8"));
-}
-
-export function isDaemonRunning() {
-  return readState() !== null;
 }

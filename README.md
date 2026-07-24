@@ -1,5 +1,8 @@
 # screen-reader-cli
 
+[![CI](https://github.com/Elizabeth1979/screen-reader-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/Elizabeth1979/screen-reader-cli/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A command-line screen reader testing tool. Scan any page for accessibility violations, generate regression tests, or drive a **real screen reader** (VoiceOver/NVDA) programmatically.
 
 Powered by [Virtual Screen Reader](https://github.com/guidepup/virtual-screen-reader), [Guidepup](https://github.com/guidepup/guidepup), [axe-core](https://github.com/dequelabs/axe-core), and [Playwright](https://playwright.dev/).
@@ -13,6 +16,18 @@ Powered by [Virtual Screen Reader](https://github.com/guidepup/virtual-screen-re
 - **Navigates** by element, heading, landmark, link, or form (virtual mode)
 - **Works offline** — everything runs locally, no CDN dependencies
 
+## Platform support
+
+| Command                                          | macOS | Windows | Linux |
+| ------------------------------------------------ | ----- | ------- | ----- |
+| `scan`, `audit`, `page`, `nav`, `speak`, `repl`  | ✅    | ✅      | ✅    |
+| `screenshot`, `--visual` reports                 | ✅    | ✅      | ✅    |
+| `live` (real VoiceOver/NVDA)                     | ✅    | ✅      | ❌    |
+
+Everything except `live` uses a virtual screen reader in headless Chromium and
+runs anywhere Node 20+ and Playwright do — including CI. `live` drives the OS
+screen reader, which only exists on macOS (VoiceOver) and Windows (NVDA).
+
 ## Install
 
 ```bash
@@ -23,6 +38,10 @@ npm install
 npx playwright install chromium
 npm link
 ```
+
+> Once the package is published to npm this becomes
+> `npm install -g screen-reader-cli` (or one-off: `npx screen-reader-cli scan <url>`),
+> followed by `npx playwright install chromium`.
 
 ### Live mode setup (optional — for real screen reader testing)
 
@@ -180,14 +199,6 @@ screenreader screenshot --url <url> --full --output page.png
 screenreader screenshot --url <url> --navigate 5 --output element.png
 ```
 
-### `daemon` — Browser lifecycle
-
-```bash
-screenreader daemon start     # Start persistent browser
-screenreader daemon stop      # Stop browser
-screenreader daemon status    # Check if running
-```
-
 ### `repl` — Interactive mode
 
 ```bash
@@ -261,6 +272,20 @@ The Virtual Screen Reader implements the same [W3C accessibility specifications]
 3. The screen reader traverses the page — you hear what it actually announces
 4. Results are captured via guidepup's API (`lastSpokenPhrase()`, `spokenPhraseLog()`)
 
+## Security notes
+
+- **`--chrome-profile` reuses your real Chrome profile** — cookies and
+  logged-in sessions included. Only use it against URLs you trust (your own
+  staging environments); scanning an untrusted site with it exposes your
+  authenticated sessions to that site.
+- **Virtual mode disables the target page's Content-Security-Policy**
+  (`bypassCSP`) so the Virtual Screen Reader bundle can be injected. This is
+  required for the tool to work on CSP-strict sites, but it means the page runs
+  with weaker protections during the scan — again, point it at pages you trust.
+- AI analysis (`--ai`) sends scan results (violation messages, selectors, page
+  title/URL) to the provider you select. Use `--provider ollama` to keep
+  everything local.
+
 ## Use cases
 
 - **Accessibility testing** — audit any site's screen reader experience from CI/CD
@@ -281,20 +306,22 @@ Claude runs `scan` + `audit` paired, saves text + JSON to disk, and surfaces the
 ## Testing
 
 ```bash
-# Run all tests
+# Run all local tests (headless Chromium, no network needed)
 npm test
 
+# E2E tests (requires network — scans https://example.com)
+npm run test:e2e
+
 # Individual suites
-node --test test/scan.test.js       # Scan command (13 tests)
-node --test test/live.test.js       # Live command (7 tests)
+node --test test/scan.test.js       # Scan command
+node --test test/live.test.js       # Live command
 node --test test/commands.test.js   # Virtual mode commands
 node --test test/bridge.test.js     # VSR bridge
 node --test test/audit.test.js      # Audit command
-node --test test/daemon.test.js     # Browser daemon
-
-# E2E tests (requires network)
-node --test test/e2e.test.js
+node --test test/daemon.test.js     # Browser lifecycle
 ```
+
+Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Built with
 

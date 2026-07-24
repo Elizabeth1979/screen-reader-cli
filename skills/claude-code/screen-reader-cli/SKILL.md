@@ -5,18 +5,15 @@ description: Audit a page or component for screen-reader accessibility using the
 
 # screen-reader-cli skill
 
-Wraps the `screen-reader-cli` tool (`~/screen-reader-cli`, https://github.com/Elizabeth1979/screen-reader-cli) for one-shot screen-reader audits.
+Wraps the `screen-reader-cli` tool (https://github.com/Elizabeth1979/screen-reader-cli) for one-shot screen-reader audits.
 
-For full CLI documentation see the README:
-
-- Local: `~/screen-reader-cli/README.md`
-- Online: https://github.com/Elizabeth1979/screen-reader-cli#readme
+For full CLI documentation see the README: https://github.com/Elizabeth1979/screen-reader-cli#readme
 
 ## Preflight (always run first)
 
 1. `command -v screenreader` — if missing, stop and tell the user:
 
-   > screen-reader-cli is not on PATH. Install: `cd ~/screen-reader-cli && npm link`. Full instructions: `~/screen-reader-cli/README.md` (or https://github.com/Elizabeth1979/screen-reader-cli#install).
+   > screen-reader-cli is not on PATH. Install it from a clone of the repo with `npm link` (or `npm install -g screen-reader-cli` once published). Full instructions: https://github.com/Elizabeth1979/screen-reader-cli#install.
 
 2. If the URL is on `localhost:6006`, check Storybook is up with `curl -sf -o /dev/null http://localhost:6006/`. If not, tell the user Storybook isn't running and stop. Don't try to start it — the user knows where their Storybook lives.
 
@@ -62,7 +59,7 @@ Chat summary is the same shape as Mode 1, but the headline must flag this used a
 
 ## Mode 3 — Targeted exploration (link out)
 
-The CLI also supports `nav`, `speak`, `screenshot`, `daemon`, and `repl` for targeted, stateful exploration. These need a persistent browser session and are not a fit for one-shot Claude calls.
+The CLI also supports `nav`, `speak`, `screenshot`, and `repl` for targeted, stateful exploration. These need a persistent browser session and are not a fit for one-shot Claude calls.
 
 If the user wants targeted exploration, point them at the README and suggest dropping into the REPL:
 

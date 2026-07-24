@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { Command } from "commander";
 import { chromium } from "playwright";
@@ -10,16 +11,7 @@ import {
   analyzeWithAI,
   resolveProviderAndModel,
 } from "../services/ai-analyzer.js";
-
-// Parses "key=value" for a repeatable Commander option, accumulating pairs.
-function collectKeyValue(value, previous) {
-  const eq = value.indexOf("=");
-  if (eq === -1) {
-    throw new Error(`Expected key=value, got "${value}"`);
-  }
-  previous.push([value.slice(0, eq), value.slice(eq + 1)]);
-  return previous;
-}
+import { CHROME_UA, collectKeyValue } from "../util.js";
 
 export function scanCommand() {
   return new Command("scan")
@@ -82,19 +74,13 @@ export function scanCommand() {
         "fully quit first — it locks the profile directory while running.",
     )
     .action(async (url, opts) => {
-      const CHROME_UA =
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-
       let browser = null;
       let context;
       if (opts.chromeProfile !== undefined) {
         const profileDir =
           typeof opts.chromeProfile === "string"
             ? opts.chromeProfile
-            : path.join(
-                process.env.HOME || "",
-                "Library/Application Support/Google/Chrome/Default",
-              );
+            : defaultChromeProfileDir();
         context = await chromium.launchPersistentContext(profileDir, {
           headless: false,
           userAgent: CHROME_UA,
@@ -196,7 +182,7 @@ export function scanCommand() {
           if (testCode) {
             const outPath =
               opts.output ||
-              `a11y-regression.test.${opts.framework === "vitest" ? "js" : "js"}`;
+              "a11y-regression.test.js";
             fs.writeFileSync(outPath, testCode, "utf-8");
             console.log(`\nTest file written: ${outPath}`);
           } else {
@@ -208,6 +194,22 @@ export function scanCommand() {
         if (browser) await browser.close();
       }
     });
+}
+
+// OS default Chrome user-data directory, used when --chrome-profile is given
+// without an explicit path.
+function defaultChromeProfileDir() {
+  const home = os.homedir();
+  if (process.platform === "darwin") {
+    return path.join(home, "Library/Application Support/Google/Chrome/Default");
+  }
+  if (process.platform === "win32") {
+    return path.join(
+      process.env.LOCALAPPDATA || path.join(home, "AppData", "Local"),
+      "Google/Chrome/User Data/Default",
+    );
+  }
+  return path.join(home, ".config/google-chrome/Default");
 }
 
 function printTextReport(results) {

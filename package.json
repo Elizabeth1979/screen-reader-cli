@@ -1,14 +1,46 @@
 {
   "name": "screen-reader-cli",
   "version": "0.1.0",
-  "description": "Screen reader CLI powered by Virtual Screen Reader + Playwright",
+  "description": "Screen reader testing CLI — scan pages for accessibility violations with axe-core + Virtual Screen Reader, drive real VoiceOver/NVDA, generate regression tests",
   "type": "module",
   "bin": {
     "screenreader": "./bin/cli.js"
   },
-  "scripts": {
-    "test": "node --test test/*.test.js"
+  "files": [
+    "bin/",
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
   },
+  "scripts": {
+    "test": "node --test test/scan.test.js test/commands.test.js test/bridge.test.js test/audit.test.js test/daemon.test.js test/live.test.js test/ai-analyzer.test.js",
+    "test:e2e": "node --test test/e2e.test.js"
+  },
+  "keywords": [
+    "accessibility",
+    "a11y",
+    "screen-reader",
+    "wcag",
+    "axe-core",
+    "voiceover",
+    "nvda",
+    "testing",
+    "cli",
+    "playwright",
+    "aria"
+  ],
+  "author": "Elizabeth Patrick",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Elizabeth1979/screen-reader-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Elizabeth1979/screen-reader-cli/issues"
+  },
+  "homepage": "https://github.com/Elizabeth1979/screen-reader-cli#readme",
   "dependencies": {
     "@guidepup/guidepup": "^0.24.1",
     "@guidepup/virtual-screen-reader": "^0.25.0",

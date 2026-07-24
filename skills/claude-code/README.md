@@ -95,4 +95,4 @@ Expected: 4 files in `/tmp/sr-test/`, plus a chat summary.
 
 ## Source
 
-These files mirror the canonical version in the maintainer's vault. The CLI and its companion skill are versioned together in this repo.
+The CLI and its companion skill are versioned together in this repo.
