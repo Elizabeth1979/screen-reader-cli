@@ -39,6 +39,19 @@ the one-time `npx @guidepup/setup`.
   pattern of invoking the CLI as a subprocess against a fixture.
 - Run `npm test` before opening a PR.
 
+## Releasing (maintainers)
+
+Publishing to npm is automated. One-time setup: create a granular npm
+access token (npmjs.com → Access Tokens → Generate New Token → choose
+"Automation") and add it as the `NPM_TOKEN` repository secret
+(Settings → Secrets and variables → Actions). Then, to release:
+
+1. Bump `version` in package.json (e.g. `0.1.0` → `0.2.0`) and merge.
+2. Either publish a GitHub Release for the new tag, or open
+   Actions → "Publish to npm" → Run workflow.
+
+The workflow runs the full test suite first — a red build never publishes.
+
 ## Reporting bugs
 
 Open an issue at
