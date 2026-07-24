@@ -19,24 +19,79 @@ export function generateScanReport(results, { aiAnalysis, aiMeta } = {}) {
   const dashOffset = circumference - (scorePercent / 100) * circumference;
 
   const severityWeight = { critical: 0, moderate: 1, minor: 2 };
-  const hasAIFixes = aiFixes.length > 0;
 
-  const violationRows = results.violations
+  // \u2500\u2500 Group violations by rule \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // 67 rows of the same rule is noise; one card per rule with its elements
+  // listed inside is signal.
+  const groups = groupViolations(results.violations, aiFixMap);
+  const groupCount = { critical: 0, moderate: 0, minor: 0 };
+  for (const g of groups) groupCount[g.severity]++;
+
+  const violationCards = groups
+    .map((g) => {
+      const visible = g.instances.slice(0, 3);
+      const overflow = g.instances.slice(3);
+      const instanceRow = (inst) => `
+        <div class="instance">
+          ${inst.element?.screenshot ? `<img class="instance-shot" src="data:image/jpeg;base64,${inst.element.screenshot}" alt="Screenshot of the affected element ${esc(inst.element?.selector || "")}">` : ""}
+          <div class="instance-meta">
+            ${inst.element?.selector ? `<code class="issue-selector">${esc(inst.element.selector)}</code>` : ""}
+            ${inst.element?.html ? `<code class="instance-html">${esc(inst.element.html.slice(0, 180))}</code>` : ""}
+          </div>
+        </div>`;
+      return `
+      <article class="issue-card" data-severity="${g.severity}">
+        <div class="issue-card-head">
+          <span class="severity-badge" style="background:${severityColor[g.severity]}">${g.severity}</span>
+          <h3 class="issue-title">${esc(g.message)}</h3>
+          <span class="count-chip">${g.instances.length} element${g.instances.length === 1 ? "" : "s"}</span>
+          ${g.wcag ? `<span class="wcag-chip">WCAG ${esc(g.wcag)}</span>` : ""}
+        </div>
+        <div class="issue-card-body">
+          ${g.aiFix ? `<p class="ai-fix">${esc(g.aiFix.fix)}</p>${g.aiFix.impact ? `<p class="ai-impact">${esc(g.aiFix.impact)}</p>` : ""}` : g.suggestion ? `<p class="issue-suggestion">${esc(g.suggestion)}</p>` : ""}
+          ${g.helpUrl ? `<p class="learn-more"><a href="${esc(g.helpUrl)}" target="_blank" rel="noopener">How to fix this (axe docs) \u2197</a></p>` : ""}
+          <div class="instances">
+            ${visible.map(instanceRow).join("\n")}
+          </div>
+          ${
+            overflow.length > 0
+              ? `<details class="more-instances">
+                  <summary>Show ${overflow.length} more element${overflow.length === 1 ? "" : "s"}</summary>
+                  <div class="instances">${overflow.map(instanceRow).join("\n")}</div>
+                </details>`
+              : ""
+          }
+        </div>
+      </article>`;
+    })
+    .join("\n");
+
+  // Needs-review, grouped the same way (no screenshots captured for these)
+  const reviewGroups = groupViolations(results.needsReview || [], {});
+  const reviewCards = reviewGroups
     .map(
-      (v, i) => {
-        const af = aiFixMap[i];
-        return `
-        <tr data-severity="${v.severity}" data-severity-weight="${severityWeight[v.severity]}" data-wcag="${esc(v.wcag || "")}" data-source="${esc(v.source || "")}">
-          <td class="col-severity"><span class="severity-badge" style="background:${severityColor[v.severity]}">${v.severity}</span></td>
-          <td class="col-issue">
-            <div class="issue-message">${esc(v.message)}</div>
-            ${v.element?.selector ? `<code class="issue-selector">${esc(v.element.selector)}</code>` : ""}
-          </td>
-          <td class="col-fix">${af ? `<div class="ai-fix">${esc(af.fix)}</div>${af.impact ? `<div class="ai-impact">${esc(af.impact)}</div>` : ""}` : (v.suggestion ? `<div class="fallback-fix">${esc(v.suggestion)}</div>` : "\u2014")}</td>
-          <td class="col-wcag">${v.wcag ? esc(v.wcag) : "\u2014"}</td>
-          <td class="col-source">${esc(v.source || "")}</td>
-        </tr>`;
-      }
+      (g) => `
+      <article class="issue-card review">
+        <div class="issue-card-head">
+          <span class="severity-badge" style="background:#8B92A8">review</span>
+          <h3 class="issue-title">${esc(g.message)}</h3>
+          <span class="count-chip">${g.instances.length} element${g.instances.length === 1 ? "" : "s"}</span>
+          ${g.wcag ? `<span class="wcag-chip">WCAG ${esc(g.wcag)}</span>` : ""}
+        </div>
+        <div class="issue-card-body">
+          ${g.suggestion ? `<p class="issue-suggestion">${esc(g.suggestion)}</p>` : ""}
+          <div class="instances">
+            ${g.instances
+              .slice(0, 5)
+              .map(
+                (inst) =>
+                  `<div class="instance"><div class="instance-meta">${inst.element?.selector ? `<code class="issue-selector">${esc(inst.element.selector)}</code>` : ""}</div></div>`,
+              )
+              .join("\n")}
+            ${g.instances.length > 5 ? `<p class="overflow-note">\u2026 and ${g.instances.length - 5} more</p>` : ""}
+          </div>
+        </div>
+      </article>`,
     )
     .join("\n");
 
@@ -349,73 +404,126 @@ export function generateScanReport(results, { aiAnalysis, aiMeta } = {}) {
       margin-left: 2px;
     }
 
-    /* ── Issues table ──────────────────────────── */
-    .table-wrap {
-      overflow-x: auto;
+    /* ── Issue cards (grouped by rule) ─────────── */
+    .header-sub {
+      font-weight: 400;
+      color: var(--text-muted);
+      font-size: 0.85em;
+      margin-left: 6px;
     }
 
-    .issues-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.88rem;
+    .cards { padding: 20px 28px 28px; display: grid; gap: 16px; }
+
+    .issue-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .issue-card.hidden { display: none; }
+
+    .issue-card-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 16px 20px 12px;
     }
 
-    .issues-table thead th {
+    .issue-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      flex: 1 1 260px;
+      line-height: 1.4;
+    }
+
+    .count-chip {
       font-family: var(--font-mono);
       font-size: 0.7rem;
-      font-weight: 500;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--text-muted);
-      text-align: left;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg-elevated);
-      white-space: nowrap;
-      user-select: none;
-    }
-
-    .issues-table thead th.sortable {
-      cursor: pointer;
-      transition: color 0.15s;
-    }
-
-    .issues-table thead th.sortable:hover {
       color: var(--text-primary);
-    }
-
-    .issues-table thead th[aria-sort="ascending"] .sort-icon,
-    .issues-table thead th[aria-sort="descending"] .sort-icon {
-      color: var(--accent);
-    }
-
-    .sort-icon {
-      font-size: 0.6rem;
-      color: var(--border);
-      margin-left: 4px;
-    }
-
-    .issues-table tbody tr {
-      border-bottom: 1px solid var(--border-subtle);
-      transition: background 0.12s;
-    }
-
-    .issues-table tbody tr:hover {
       background: var(--bg-hover);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px 12px;
+      white-space: nowrap;
     }
 
-    .issues-table tbody tr.hidden {
-      display: none;
+    .wcag-chip {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
     }
 
-    .issues-table tbody td {
-      padding: 14px 16px;
-      vertical-align: top;
+    .issue-card-body { padding: 0 20px 18px; }
+
+    .issue-suggestion, .ai-fix {
+      font-size: 0.86rem;
+      color: var(--text-secondary);
+      line-height: 1.55;
+      margin-bottom: 6px;
+      max-width: 65ch;
+    }
+    .ai-fix { color: var(--text-primary); }
+
+    .learn-more { margin-bottom: 12px; }
+    .learn-more a {
+      font-size: 0.8rem;
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .learn-more a:hover { text-decoration: underline; }
+
+    .instances { display: grid; gap: 10px; margin-top: 10px; }
+
+    .instance {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
     }
 
-    .col-severity { width: 100px; }
-    .col-wcag { width: 90px; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary); }
-    .col-source { width: 90px; font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted); }
+    .instance-shot {
+      max-width: 220px;
+      max-height: 110px;
+      object-fit: contain;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: #fff;
+      flex-shrink: 0;
+    }
+
+    .instance-meta { min-width: 0; }
+
+    .instance-html {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+      word-break: break-all;
+      line-height: 1.5;
+    }
+
+    .more-instances { margin-top: 10px; }
+    .more-instances summary {
+      padding: 8px 0;
+      font-size: 0.8rem;
+      color: var(--accent);
+      cursor: pointer;
+      justify-content: flex-start;
+    }
+    .more-instances summary:hover { background: none; text-decoration: underline; }
+    .more-instances .instances { margin-top: 4px; }
+
+    .overflow-note {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
 
     .severity-badge {
       font-family: var(--font-mono);
@@ -721,31 +829,34 @@ export function generateScanReport(results, { aiAnalysis, aiMeta } = {}) {
           </section>`
         : `<section class="report-section" style="--delay:0.2s">
             <div class="section-header">
-              <h2>Issues Found</h2>
+              <h2>${groups.length} distinct issue${groups.length === 1 ? "" : "s"} <span class="header-sub">across ${results.stats.violationCount} elements</span></h2>
               <div class="table-controls">
-                <div class="filter-pills">
-                  <button class="filter-pill active" data-filter="all">All <span class="pill-count">${results.stats.violationCount}</span></button>
-                  ${results.stats.critical > 0 ? `<button class="filter-pill" data-filter="critical" style="--pill-color:var(--critical)">Critical <span class="pill-count">${results.stats.critical}</span></button>` : ""}
-                  ${results.stats.moderate > 0 ? `<button class="filter-pill" data-filter="moderate" style="--pill-color:var(--moderate)">Moderate <span class="pill-count">${results.stats.moderate}</span></button>` : ""}
-                  ${results.stats.minor > 0 ? `<button class="filter-pill" data-filter="minor" style="--pill-color:var(--minor)">Minor <span class="pill-count">${results.stats.minor}</span></button>` : ""}
+                <div class="filter-pills" id="severityFilters">
+                  <button class="filter-pill active" data-filter="all">All <span class="pill-count">${groups.length}</span></button>
+                  ${groupCount.critical > 0 ? `<button class="filter-pill" data-filter="critical" style="--pill-color:var(--critical)">Critical <span class="pill-count">${groupCount.critical}</span></button>` : ""}
+                  ${groupCount.moderate > 0 ? `<button class="filter-pill" data-filter="moderate" style="--pill-color:var(--moderate)">Moderate <span class="pill-count">${groupCount.moderate}</span></button>` : ""}
+                  ${groupCount.minor > 0 ? `<button class="filter-pill" data-filter="minor" style="--pill-color:var(--minor)">Minor <span class="pill-count">${groupCount.minor}</span></button>` : ""}
                 </div>
               </div>
             </div>
-            <div class="table-wrap">
-              <table class="issues-table" id="issuesTable">
-                <thead>
-                  <tr>
-                    <th class="sortable col-severity" data-sort="severity-weight" data-type="number" aria-sort="ascending">Severity <span class="sort-icon">\u25B2</span></th>
-                    <th class="col-issue">Issue</th>
-                    <th class="col-fix">${hasAIFixes ? "AI Fix" : "Suggestion"}</th>
-                    <th class="sortable col-wcag" data-sort="wcag" data-type="string">WCAG <span class="sort-icon">\u25BC</span></th>
-                    <th class="sortable col-source" data-sort="source" data-type="string">Source <span class="sort-icon">\u25BC</span></th>
-                  </tr>
-                </thead>
-                <tbody>${violationRows}</tbody>
-              </table>
+            <div class="cards" id="issueCards">
+              ${violationCards}
             </div>
           </section>`
+    }
+
+    ${
+      reviewGroups.length > 0
+        ? `<div class="report-section" style="--delay:0.25s">
+            <details>
+              <summary>
+                <h2>Needs manual review <span class="header-sub">${(results.needsReview || []).length} elements axe couldn't auto-decide</span></h2>
+                <span class="chevron">\u25B6</span>
+              </summary>
+              <div class="section-body cards">${reviewCards}</div>
+            </details>
+          </div>`
+        : ""
     }
 
     <section class="report-section" style="--delay:0.3s">
@@ -789,62 +900,18 @@ export function generateScanReport(results, { aiAnalysis, aiMeta } = {}) {
 
   <script>
   (function() {
-    const table = document.getElementById('issuesTable');
-    if (!table) return;
+    const cardWrap = document.getElementById('issueCards');
+    if (!cardWrap) return;
+    const pills = document.querySelectorAll('#severityFilters .filter-pill');
+    const cards = cardWrap.querySelectorAll('.issue-card');
 
-    const tbody = table.querySelector('tbody');
-    const headers = table.querySelectorAll('th.sortable');
-    const pills = document.querySelectorAll('.filter-pill');
-
-    // ── Sorting ───────────────────────────────────
-    let currentSort = { col: 'severity-weight', dir: 'asc' };
-
-    function sortTable(col, type) {
-      const dir = currentSort.col === col && currentSort.dir === 'asc' ? 'desc' : 'asc';
-      currentSort = { col, dir };
-
-      const rows = Array.from(tbody.querySelectorAll('tr'));
-      rows.sort((a, b) => {
-        let va = a.dataset[toCamel(col)] || '';
-        let vb = b.dataset[toCamel(col)] || '';
-        if (type === 'number') { va = Number(va); vb = Number(vb); }
-        else { va = va.toLowerCase(); vb = vb.toLowerCase(); }
-        if (va < vb) return dir === 'asc' ? -1 : 1;
-        if (va > vb) return dir === 'asc' ? 1 : -1;
-        return 0;
-      });
-
-      rows.forEach(r => tbody.appendChild(r));
-
-      headers.forEach(h => {
-        const isActive = h.dataset.sort === col;
-        h.setAttribute('aria-sort', isActive ? (dir === 'asc' ? 'ascending' : 'descending') : 'none');
-        h.querySelector('.sort-icon').textContent = isActive ? (dir === 'asc' ? '\u25B2' : '\u25BC') : '\u25BC';
-      });
-    }
-
-    function toCamel(s) {
-      return s.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-    }
-
-    headers.forEach(h => {
-      h.addEventListener('click', () => sortTable(h.dataset.sort, h.dataset.type));
-    });
-
-    // ── Filtering ─────────────────────────────────
     pills.forEach(pill => {
       pill.addEventListener('click', () => {
         pills.forEach(p => p.classList.remove('active'));
         pill.classList.add('active');
-
         const filter = pill.dataset.filter;
-        const rows = tbody.querySelectorAll('tr');
-        rows.forEach(row => {
-          if (filter === 'all' || row.dataset.severity === filter) {
-            row.classList.remove('hidden');
-          } else {
-            row.classList.add('hidden');
-          }
+        cards.forEach(card => {
+          card.classList.toggle('hidden', filter !== 'all' && card.dataset.severity !== filter);
         });
       });
     });
@@ -852,6 +919,37 @@ export function generateScanReport(results, { aiAnalysis, aiMeta } = {}) {
   </script>
 </body>
 </html>`;
+}
+
+// Collapse per-element findings into one group per rule, sorted most-severe
+// first and, within a severity, most-elements first. aiFixMap is keyed by the
+// finding's index in the original array (how --ai indexes its fixes).
+function groupViolations(violations, aiFixMap) {
+  const order = { critical: 0, moderate: 1, minor: 2 };
+  const byRule = new Map();
+  violations.forEach((v, i) => {
+    const key = `${v.id}::${v.severity || ""}`;
+    if (!byRule.has(key)) {
+      byRule.set(key, {
+        id: v.id,
+        message: v.message,
+        severity: v.severity,
+        wcag: v.wcag,
+        helpUrl: v.helpUrl,
+        suggestion: v.suggestion,
+        aiFix: null,
+        instances: [],
+      });
+    }
+    const g = byRule.get(key);
+    g.instances.push(v);
+    if (!g.aiFix && aiFixMap[i]) g.aiFix = aiFixMap[i];
+  });
+  return [...byRule.values()].sort(
+    (a, b) =>
+      (order[a.severity] ?? 3) - (order[b.severity] ?? 3) ||
+      b.instances.length - a.instances.length,
+  );
 }
 
 function esc(str) {

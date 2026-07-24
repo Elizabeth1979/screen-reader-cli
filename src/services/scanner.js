@@ -29,6 +29,10 @@ export async function scan(page) {
     ),
   );
 
+  // 4c. Photograph failing elements so reports can show the thing, not just
+  // its selector. Capped per rule and in total to keep reports light.
+  await captureElementShots(page, merged);
+
   // 5. Screenshot for visual report
   const screenshot = await page.screenshot({ fullPage: true, type: "png" });
 
@@ -171,6 +175,40 @@ async function extractDomOrder(page) {
     }
     return order;
   });
+}
+
+// Screenshot the first few elements of each rule (jpeg, small) and attach
+// them as `element.screenshot` (base64). Failures are silently skipped — a
+// hidden or detached element just doesn't get a picture.
+const SHOTS_PER_RULE = 3;
+const SHOTS_TOTAL = 30;
+
+async function captureElementShots(page, violations) {
+  const perRule = new Map();
+  let total = 0;
+
+  for (const v of violations) {
+    if (total >= SHOTS_TOTAL) break;
+    const taken = perRule.get(v.id) || 0;
+    if (taken >= SHOTS_PER_RULE) continue;
+    const selector = v.element?.selector;
+    if (!selector) continue;
+
+    try {
+      const loc = page.locator(selector).first();
+      await loc.scrollIntoViewIfNeeded({ timeout: 1500 });
+      const buf = await loc.screenshot({
+        timeout: 2500,
+        type: "jpeg",
+        quality: 60,
+      });
+      v.element.screenshot = buf.toString("base64");
+      perRule.set(v.id, taken + 1);
+      total++;
+    } catch {
+      // Element not visible / gone / selector too exotic — skip its photo.
+    }
+  }
 }
 
 async function runAxe(page) {

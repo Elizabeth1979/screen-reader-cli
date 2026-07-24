@@ -17,7 +17,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test test/scan.test.js test/commands.test.js test/bridge.test.js test/audit.test.js test/daemon.test.js test/live.test.js test/ai-analyzer.test.js test/dashboard.test.js",
+    "test": "node --test test/scan.test.js test/commands.test.js test/bridge.test.js test/audit.test.js test/daemon.test.js test/live.test.js test/ai-analyzer.test.js test/dashboard.test.js test/report.test.js",
     "test:e2e": "node --test test/e2e.test.js"
   },
   "keywords": [

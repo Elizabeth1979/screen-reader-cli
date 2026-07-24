@@ -394,8 +394,8 @@ Recently shipped:
 
 Planned (roughly in order):
 
-- [ ] **Element screenshots** — capture an image of each failing element and
-      embed it in the visual report
+- [x] **Element screenshots** — each failing element is photographed and shown
+      in the visual report, grouped by rule
 - [ ] **Flow capture** — screenshot each step of a multi-page/multi-step flow
       as it's scanned
 - [ ] **Violation context** — include the DOM path and accessibility-tree node

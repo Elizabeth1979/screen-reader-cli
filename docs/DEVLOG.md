@@ -74,6 +74,23 @@ secret — a granular npm token with **read/write on all packages** and
 **"Bypass 2FA" checked** (a CI robot can't type a phone code). First
 publish of v0.1.0 was triggered right after this merged.
 
+### [PR #9](https://github.com/Elizabeth1979/screen-reader-cli/pull/9) — Report redesign: grouping + element screenshots
+
+Driven by the first real-world scan (Melio's homepage): 67 table rows that
+were really just 2 distinct problems, with no way to *see* the failing
+elements. Changes:
+
+- **Violations grouped by rule** — one card per rule ("Color contrast —
+  12 elements"), first 3 elements shown, the rest behind "Show N more."
+  Header reads "N distinct issues across M elements."
+- **Element screenshots** — the scanner now photographs failing elements
+  (capped at 3 per rule / 30 total, JPEG, failures silently skipped) and
+  the report embeds them, so you can find the element by sight instead of
+  by selector. This was the top roadmap item.
+- Needs-review findings get their own grouped, collapsible section (they
+  were missing from the visual report entirely).
+- `--json` output stays lean: element screenshots are stripped there.
+
 ### Decisions worth remembering
 
 - **Audience decision:** the tool serves non-developers too. That drove
