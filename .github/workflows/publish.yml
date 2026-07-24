@@ -1,0 +1,37 @@
+name: Publish to npm
+
+# Runs when you click "Run workflow" on the Actions tab, or when you
+# publish a GitHub Release. Requires an NPM_TOKEN repository secret
+# (Settings → Secrets and variables → Actions → New repository secret).
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write # npm provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      # The test suite needs Chromium; keep the gate so a broken build
+      # can never be published.
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
+        env:
+          SR_NO_OPEN: "1"
+
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
