@@ -161,7 +161,14 @@ export function scanCommand() {
         }
 
         if (opts.json) {
+          // Keep JSON lean for CI: drop the page screenshot and per-element
+          // photos (those exist for the visual report).
           const { screenshot, ...jsonSafe } = results;
+          jsonSafe.violations = jsonSafe.violations.map((v) => {
+            if (!v.element?.screenshot) return v;
+            const { screenshot: _shot, ...element } = v.element;
+            return { ...v, element };
+          });
           const output = aiAnalysis ? { ...jsonSafe, aiAnalysis } : jsonSafe;
           console.log(JSON.stringify(output, null, 2));
         } else if (opts.visual) {

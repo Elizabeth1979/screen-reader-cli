@@ -95,6 +95,10 @@ describe("scan command — JSON output", () => {
     assert.ok(v.message, "violation should have message");
     assert.ok(v.severity, "violation should have severity");
     assert.ok(v.source, "violation should have source (custom or axe-core)");
+    assert.ok(
+      data.violations.every((x) => !("screenshot" in (x.element || {}))),
+      "element screenshots stay out of JSON output",
+    );
   });
 
   it("returns stats with counts", () => {
