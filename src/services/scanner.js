@@ -179,29 +179,43 @@ async function extractDomOrder(page) {
 
 // Screenshot the first few elements of each rule (jpeg, small) and attach
 // them as `element.screenshot` (base64). Failures are silently skipped — a
-// hidden or detached element just doesn't get a picture.
+// hidden or detached element just doesn't get a picture. Every wait here is
+// bounded twice: playwright's own timeout AND a wall-clock race, because a
+// wedged screenshot call must never hang the whole scan.
 const SHOTS_PER_RULE = 3;
 const SHOTS_TOTAL = 30;
+const SHOT_HARD_TIMEOUT_MS = 4000;
+const SHOTS_TOTAL_BUDGET_MS = 15000;
 
 async function captureElementShots(page, violations) {
   const perRule = new Map();
   let total = 0;
+  const deadline = Date.now() + SHOTS_TOTAL_BUDGET_MS;
 
   for (const v of violations) {
-    if (total >= SHOTS_TOTAL) break;
+    if (total >= SHOTS_TOTAL || Date.now() > deadline) break;
     const taken = perRule.get(v.id) || 0;
     if (taken >= SHOTS_PER_RULE) continue;
     const selector = v.element?.selector;
     if (!selector) continue;
 
     try {
-      const loc = page.locator(selector).first();
-      await loc.scrollIntoViewIfNeeded({ timeout: 1500 });
-      const buf = await loc.screenshot({
-        timeout: 2500,
-        type: "jpeg",
-        quality: 60,
-      });
+      // element.screenshot scrolls the element into view itself.
+      const shot = page
+        .locator(selector)
+        .first()
+        .screenshot({ timeout: 2500, type: "jpeg", quality: 60 });
+      shot.catch(() => {}); // late rejection after the race must not surface
+      const buf = await Promise.race([
+        shot,
+        new Promise((_, reject) => {
+          const t = setTimeout(
+            () => reject(new Error("screenshot deadline")),
+            SHOT_HARD_TIMEOUT_MS,
+          );
+          t.unref?.();
+        }),
+      ]);
       v.element.screenshot = buf.toString("base64");
       perRule.set(v.id, taken + 1);
       total++;
