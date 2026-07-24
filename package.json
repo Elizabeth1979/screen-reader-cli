@@ -4,7 +4,8 @@
   "description": "Screen reader testing CLI — scan pages for accessibility violations with axe-core + Virtual Screen Reader, drive real VoiceOver/NVDA, generate regression tests",
   "type": "module",
   "bin": {
-    "screenreader": "./bin/cli.js"
+    "screenreader": "./bin/cli.js",
+    "sr": "./bin/sr.js"
   },
   "files": [
     "bin/",
