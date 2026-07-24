@@ -3,17 +3,21 @@ import path from "node:path";
 import os from "node:os";
 import { execFileSync } from "node:child_process";
 
-function defaultLaunch(filePath) {
+// Open a file path or URL with the OS default handler. Exported so other
+// commands (e.g. dashboard) can open a browser the same way.
+export function openExternal(target) {
   if (process.platform === "darwin") {
-    execFileSync("open", [filePath]);
+    execFileSync("open", [target]);
   } else if (process.platform === "win32") {
     // The empty string is start's window-title argument — without it a
     // quoted path would be consumed as the title instead of the file.
-    execFileSync("cmd", ["/c", "start", "", filePath]);
+    execFileSync("cmd", ["/c", "start", "", target]);
   } else {
-    execFileSync("xdg-open", [filePath]);
+    execFileSync("xdg-open", [target]);
   }
 }
+
+const defaultLaunch = openExternal;
 
 export function openReport(
   html,

@@ -8,6 +8,7 @@ import { auditCommand } from "../src/commands/audit.js";
 import { screenshotCommand } from "../src/commands/screenshot.js";
 import { scanCommand } from "../src/commands/scan.js";
 import { liveCommand } from "../src/commands/live.js";
+import { dashboardCommand } from "../src/commands/dashboard.js";
 import { startRepl } from "../src/repl.js";
 
 const { version } = JSON.parse(
@@ -33,6 +34,7 @@ program.addCommand(auditCommand());
 program.addCommand(screenshotCommand());
 program.addCommand(scanCommand());
 program.addCommand(liveCommand());
+program.addCommand(dashboardCommand());
 
 program
   .command("repl")

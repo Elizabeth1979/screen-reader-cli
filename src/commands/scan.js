@@ -11,7 +11,7 @@ import {
   analyzeWithAI,
   resolveProviderAndModel,
 } from "../services/ai-analyzer.js";
-import { CHROME_UA, collectKeyValue } from "../util.js";
+import { CHROME_UA, collectKeyValue, resolveTarget } from "../util.js";
 
 // Lower rank = more severe. --fail-on <s> fails when any violation's rank
 // is <= the threshold's rank.
@@ -120,11 +120,7 @@ export function scanCommand() {
       const page = await context.newPage();
 
       try {
-        const target =
-          url.startsWith("http") || url.startsWith("file://")
-            ? url
-            : "file://" + path.resolve(url);
-        await page.goto(target, {
+        await page.goto(resolveTarget(url), {
           waitUntil: "domcontentloaded",
           timeout: 30000,
         });
