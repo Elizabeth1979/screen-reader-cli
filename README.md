@@ -5,6 +5,8 @@
 
 A command-line screen reader testing tool. Scan any page for accessibility violations, generate regression tests, or drive a **real screen reader** (VoiceOver/NVDA) programmatically.
 
+**New here, or not a developer?** Start with the friendly guide: **[elizabeth1979.github.io/screen-reader-cli](https://elizabeth1979.github.io/screen-reader-cli/)** — what the tool does, who it's for, and how to run your first check in three steps.
+
 Powered by [Virtual Screen Reader](https://github.com/guidepup/virtual-screen-reader), [Guidepup](https://github.com/guidepup/guidepup), [axe-core](https://github.com/dequelabs/axe-core), and [Playwright](https://playwright.dev/).
 
 ## What it does
