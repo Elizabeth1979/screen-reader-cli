@@ -15,8 +15,10 @@ function generatePlaywrightTests(results) {
     if (seen.has(key)) continue;
     seen.add(key);
 
+    // Cases match the axe-core rule IDs emitted by the scanner
+    // (detection is axe-only — see scanner.js mapAxeFinding).
     switch (v.id) {
-      case "heading-skip":
+      case "heading-order":
         tests.push(`  test('heading hierarchy has no skips', async ({ page }) => {
     const headings = await page.locator('h1, h2, h3, h4, h5, h6').all();
     const levels = [];
@@ -30,7 +32,7 @@ function generatePlaywrightTests(results) {
   });`);
         break;
 
-      case "missing-alt":
+      case "image-alt":
         tests.push(`  test('all images have alt text', async ({ page }) => {
     const images = await page.locator('img').all();
     for (const img of images) {
@@ -41,11 +43,11 @@ function generatePlaywrightTests(results) {
   });`);
         break;
 
-      case "missing-button-name":
-      case "icon-button-no-name":
-        if (seen.has("missing-button-name") || seen.has("icon-button-no-name")) break;
-        seen.add("missing-button-name");
-        seen.add("icon-button-no-name");
+      case "button-name":
+      case "input-button-name":
+        if (seen.has("button-name") && seen.has("input-button-name")) break;
+        seen.add("button-name");
+        seen.add("input-button-name");
         tests.push(`  test('all buttons have accessible names', async ({ page }) => {
     const buttons = await page.locator('button, [role="button"]').all();
     for (const btn of buttons) {
@@ -56,11 +58,7 @@ function generatePlaywrightTests(results) {
   });`);
         break;
 
-      case "missing-link-name":
-      case "icon-link-no-name":
-        if (seen.has("missing-link-name") || seen.has("icon-link-no-name")) break;
-        seen.add("missing-link-name");
-        seen.add("icon-link-no-name");
+      case "link-name":
         tests.push(`  test('all links have accessible names', async ({ page }) => {
     const links = await page.locator('a[href]').all();
     for (const link of links) {
@@ -71,7 +69,8 @@ function generatePlaywrightTests(results) {
   });`);
         break;
 
-      case "missing-form-label":
+      case "label":
+      case "select-name":
         tests.push(`  test('all form inputs have labels', async ({ page }) => {
     const inputs = await page.locator('input:not([type="hidden"]):not([type="submit"]):not([type="button"]), select, textarea').all();
     for (const input of inputs) {
@@ -85,20 +84,37 @@ function generatePlaywrightTests(results) {
   });`);
         break;
 
-      case "missing-main-landmark":
+      case "landmark-one-main":
         tests.push(`  test('page has a main landmark', async ({ page }) => {
     const main = page.locator('main, [role="main"]');
     await expect(main).toHaveCount(1);
   });`);
         break;
 
-      case "hidden-focusable":
+      case "aria-hidden-focus":
         tests.push(`  test('no focusable elements inside aria-hidden', async ({ page }) => {
     const hidden = await page.locator('[aria-hidden="true"]').all();
     for (const el of hidden) {
       const focusable = await el.locator('a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])').count();
       expect(focusable, 'aria-hidden element contains focusable content').toBe(0);
     }
+  });`);
+        break;
+
+      case "html-has-lang":
+      case "html-lang-valid":
+        if (seen.has("html-has-lang") && seen.has("html-lang-valid")) break;
+        seen.add("html-has-lang");
+        seen.add("html-lang-valid");
+        tests.push(`  test('html element has a valid lang attribute', async ({ page }) => {
+    const lang = await page.locator('html').getAttribute('lang');
+    expect(lang, 'html element missing lang attribute').toBeTruthy();
+  });`);
+        break;
+
+      case "document-title":
+        tests.push(`  test('page has a non-empty title', async ({ page }) => {
+    await expect(page).toHaveTitle(/\\S/);
   });`);
         break;
 

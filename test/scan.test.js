@@ -162,6 +162,22 @@ describe("scan command — test generation", () => {
       content.includes("test.beforeEach"),
       "should have beforeEach with goto",
     );
+    // Guard against the generator falling through to generic TODO stubs:
+    // the fixture's axe findings (image-alt, heading-order, button-name…)
+    // must map to their concrete assertion bodies.
+    assert.ok(
+      content.includes("all images have alt text"),
+      "image-alt should generate the concrete alt-text assertion",
+    );
+    assert.ok(
+      content.includes("heading hierarchy has no skips"),
+      "heading-order should generate the concrete heading assertion",
+    );
+    assert.ok(
+      content.includes("all buttons have accessible names"),
+      "button-name should generate the concrete button-name assertion",
+    );
+    assert.ok(content.includes("expect("), "should contain real assertions");
 
     fs.unlinkSync(outPath);
   });

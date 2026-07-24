@@ -1,16 +1,7 @@
 import { Command } from "commander";
 import { startDaemon, connectBrowser, stopDaemon } from "../daemon.js";
 import { createBridge } from "../bridge.js";
-
-// Parses "key=value" for a repeatable Commander option, accumulating pairs.
-function collectKeyValue(value, previous) {
-  const eq = value.indexOf("=");
-  if (eq === -1) {
-    throw new Error(`Expected key=value, got "${value}"`);
-  }
-  previous.push([value.slice(0, eq), value.slice(eq + 1)]);
-  return previous;
-}
+import { collectKeyValue } from "../util.js";
 
 export function auditCommand() {
   const audit = new Command("audit")

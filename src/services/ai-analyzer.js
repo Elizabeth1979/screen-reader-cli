@@ -146,7 +146,7 @@ CRITICAL: Return raw JSON only. No markdown. No \`\`\`json. No explanation befor
 // ── HTTP calls per provider ─────────────────────────────────────────────────
 
 async function callAnthropic(apiKey, model, prompt) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch(PROVIDERS.anthropic.url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
