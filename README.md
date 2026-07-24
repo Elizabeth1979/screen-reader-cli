@@ -167,9 +167,13 @@ Prefer buttons over commands? Start the dashboard once and run every scan
 from your browser:
 
 ```bash
-screenreader dashboard              # opens http://localhost:4747
+sr                                  # shortcut — opens the dashboard
+screenreader dashboard              # same thing, full command
 screenreader dashboard --port 5000  # pick another port
 ```
+
+`sr` is a short alias for the whole CLI: on its own it opens the dashboard,
+and `sr scan <url>` works exactly like `screenreader scan <url>`.
 
 Type a page address, press **Scan**, and the results appear with a link to
 the full visual report. A history of past scans is kept while the dashboard

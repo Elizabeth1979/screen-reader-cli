@@ -2,7 +2,10 @@ import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createDashboardServer } from "../src/commands/dashboard.js";
+import {
+  createDashboardServer,
+  listenWithFallback,
+} from "../src/commands/dashboard.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE = path.resolve(__dirname, "fixtures/violations.html");
@@ -96,5 +99,23 @@ describe("dashboard server", () => {
       base + "/report/00000000-0000-0000-0000-000000000000",
     );
     assert.equal(res.status, 404);
+  });
+
+  it("falls back to the next port when the preferred one is busy", async () => {
+    const busyPort = server.address().port;
+    const { server: second } = createDashboardServer();
+    try {
+      const boundPort = await listenWithFallback(
+        second,
+        busyPort,
+        "127.0.0.1",
+      );
+      assert.notEqual(boundPort, busyPort, "picked a different port");
+      assert.equal(boundPort, second.address().port, "reports the real port");
+      const res = await fetch(`http://127.0.0.1:${boundPort}/`);
+      assert.equal(res.status, 200, "fallback server actually serves");
+    } finally {
+      second.close();
+    }
   });
 });
