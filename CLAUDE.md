@@ -24,6 +24,12 @@ default; `sr <subcommand>` forwards to the CLI.
 - Tests are Node's built-in runner, real-browser integration style, fixtures
   in `test/fixtures/*.html`. CLI is exercised as a subprocess (see
   `test/scan.test.js` `run()`).
+- Known flake: `commands.test.js` nav test occasionally fails on CI with
+  "browser.newContext: Browser closed" — re-run failed jobs once; twice in
+  a row means it's real.
+- Any wait added to the scan pipeline must be double-bounded (playwright
+  timeout + wall-clock race) — an element-screenshot call once hung CI for
+  32 min despite its own timeout (see scanner.js captureElementShots).
 - Verify docs page after editing it: `node bin/cli.js scan docs/index.html
   --fail-on minor` must exit 0 — the site advertises that it passes.
 

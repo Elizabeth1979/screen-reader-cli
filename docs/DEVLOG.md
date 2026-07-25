@@ -74,6 +74,30 @@ secret — a granular npm token with **read/write on all packages** and
 **"Bypass 2FA" checked** (a CI robot can't type a phone code). First
 publish of v0.1.0 was triggered right after this merged.
 
+### [PR #7](https://github.com/Elizabeth1979/screen-reader-cli/pull/7) — Project memory
+
+This file (docs/DEVLOG.md) and CLAUDE.md were added so the history and
+conventions survive between sessions and collaborators.
+
+### [PR #8](https://github.com/Elizabeth1979/screen-reader-cli/pull/8) — Get Started rewritten around the dashboard
+
+The site's guide confused its first real reader ("where is the dashboard
+and button?"). The section now opens with the answer — **the dashboard runs
+on your computer, not on the website** — and walks five steps (install
+Node → open terminal → two-line npm install → type `sr` → scan and click),
+with a visual sketch of the dashboard. README install became npm-first
+after v0.1.0 was published.
+
+### Published: v0.1.0 on npm + site live
+
+- **npm**: `screen-reader-cli@0.1.0` published via the Actions workflow
+  (after the owner added the `NPM_TOKEN` secret — granular token,
+  read/write all packages, "Bypass 2FA" checked). Install is now
+  `npm install -g screen-reader-cli`.
+- **Site**: https://elizabeth1979.github.io/screen-reader-cli/ went live
+  after a one-time Settings → Pages → Source → "GitHub Actions" click by
+  the owner; it redeploys automatically on every docs/ change.
+
 ### [PR #9](https://github.com/Elizabeth1979/screen-reader-cli/pull/9) — Report redesign: grouping + element screenshots
 
 Driven by the first real-world scan (Melio's homepage): 67 table rows that
@@ -90,6 +114,20 @@ elements. Changes:
 - Needs-review findings get their own grouped, collapsible section (they
   were missing from the visual report entirely).
 - `--json` output stays lean: element screenshots are stripped there.
+- **War story:** the first version hung CI for 32 minutes — an element
+  screenshot call wedged on CI's newer Playwright despite its own timeout.
+  Fix: every screenshot is now double-bounded (playwright timeout AND a
+  wall-clock `Promise.race`), plus a total budget per scan. Lesson: never
+  let a nice-to-have (a photo) be able to block the must-have (the scan).
+
+### Known quirks
+
+- `test/commands.test.js` ("nav commands → navigates next") occasionally
+  flakes on CI with "browser.newContext: Browser closed". One re-run of
+  failed jobs fixes it. If it fails twice in a row, treat it as real.
+- Local dev note: this cloud/dev sandbox pins Playwright 1.56 via
+  `npm install --no-save` to match its preinstalled Chromium; CI and users
+  get the lockfile version.
 
 ### Decisions worth remembering
 
@@ -103,9 +141,21 @@ elements. Changes:
   reader injection (documented in README security notes); `--chrome-profile`
   reuses the real logged-in Chrome profile (only scan trusted URLs).
 
-### Still open (roadmap)
+### Where things stand at end of session
 
-Element screenshots in reports → flow capture → richer per-violation AI
-fixes → asset capture → crawling → baseline/diff → GitHub Action →
-transcript diff. Bigger idea parked: a desktop app (Tauri/Electron) as the
-true zero-terminal install for non-technical users.
+Shipped and live: npm v0.1.0, the site, the dashboard + `sr`, `--fail-on`
+CI gating, grouped reports with element photos, CI + publish workflows,
+and this log.
+
+Open items, in suggested order:
+
+1. **Publish v0.2.0** — main now has dashboard, `sr`, and the report
+   redesign, all missing from the published 0.1.0. Bump `version` in
+   package.json, merge, then Actions → "Publish to npm" → Run workflow.
+2. **Roadmap next**: flow capture → violation DOM/a11y-tree context →
+   richer per-violation AI fixes → asset capture → crawling →
+   baseline/diff → GitHub Action → transcript diff.
+3. **Parked product decision**: the fully non-technical install. Options
+   discussed: desktop app (Tauri/Electron — recommended eventually) vs.
+   hosted web service (zero install, but real hosting costs). No decision
+   made yet.
