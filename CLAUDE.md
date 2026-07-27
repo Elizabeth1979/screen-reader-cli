@@ -31,7 +31,7 @@ default; `sr <subcommand>` forwards to the CLI.
   timeout + wall-clock race) — an element-screenshot call once hung CI for
   32 min despite its own timeout (see scanner.js captureElementShots).
 - Verify docs page after editing it: `node bin/cli.js scan docs/index.html
-  --fail-on minor` must exit 0 — the site advertises that it passes.
+--fail-on minor` must exit 0 — the site advertises that it passes.
 
 ## Releasing
 
@@ -58,6 +58,15 @@ font Atkinson Hyperlegible; must keep passing `--fail-on minor`.
   `npm pack --dry-run` when adding top-level files.
 - History and rationale: **docs/DEVLOG.md** (append new entries, newest
   first).
+- **Produce here, consume elsewhere — deliberate separation.** This repo is
+  maintained/published from Elizabeth's personal `Elizabeth1979` account. On
+  her Melio work machine she _consumes_ the tool as a plain user to QA the
+  Melio product — the intended consume path there is the **published npx / npm
+  package**, not a linked dev clone, so she dogfoods the exact artifact a Melio
+  dev would install. (As of 2026-07-26 the Melio machine is still on an
+  `npm link` clone because the tool is under active development — fast
+  iteration beats dogfooding until it stabilizes; flip to the package later.)
+  Keep Melio identity off this repo — it stays a personal asset.
 
 ## Working with the maintainer
 
