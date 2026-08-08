@@ -58,6 +58,14 @@ font Atkinson Hyperlegible; must keep passing `--fail-on minor`.
   `npm pack --dry-run` when adding top-level files.
 - History and rationale: **docs/DEVLOG.md** (append new entries, newest
   first).
+- **Bugs found while using the tool elsewhere → open a GitHub issue here, do
+  not fix in place.** The tool is most often exercised from other contexts
+  (e.g. QA'ing a product on the Melio machine), where a fix can't be properly
+  tested — live-mode work in particular needs VoiceOver to take over the
+  machine for minutes per run. File an issue with the root cause and the
+  proposed fix written into it (`gh issue create`), then implement in a
+  dedicated session here. A PR is for when the code already exists and is
+  testable; an issue is for when the diagnosis is ahead of the test loop.
 - **Produce here, consume elsewhere — deliberate separation.** This repo is
   maintained/published from Elizabeth's personal `Elizabeth1979` account. On
   her Melio work machine she _consumes_ the tool as a plain user to QA the
