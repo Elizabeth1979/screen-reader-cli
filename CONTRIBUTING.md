@@ -25,6 +25,14 @@ Tests use Node's built-in test runner (`node --test`), no extra framework.
 Fixtures live in `test/fixtures/` as plain HTML files — adding a fixture that
 reproduces a bug is a great way to start a contribution.
 
+`npm test` passes `--test-concurrency=1` on purpose. Several suites start and
+stop the shared browser daemon, and when the runner executes those files in
+parallel they tear down each other's daemon: commands then return empty output
+and the failure surfaces somewhere unrelated, as `Unexpected end of JSON input`
+or a mismatched websocket endpoint. Serial execution is a few seconds slower and
+deterministic. Don't remove the flag without first making the daemon
+per-suite.
+
 ## Live mode (real screen readers)
 
 The `live` command drives VoiceOver (macOS) or NVDA (Windows) and cannot run
