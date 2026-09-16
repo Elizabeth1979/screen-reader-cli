@@ -11,7 +11,12 @@ import {
   analyzeWithAI,
   resolveProviderAndModel,
 } from "../services/ai-analyzer.js";
-import { CHROME_UA, collectKeyValue, resolveTarget } from "../util.js";
+import {
+  collectKeyValue,
+  DEVICE_NAMES,
+  resolveDeviceOptions,
+  resolveTarget,
+} from "../util.js";
 
 // Lower rank = more severe. --fail-on <s> fails when any violation's rank
 // is <= the threshold's rank.
@@ -83,8 +88,21 @@ export function scanCommand() {
         "the OS default Chrome profile if no path is given. Chrome must be " +
         "fully quit first — it locks the profile directory while running.",
     )
+    .option(
+      "--device <name>",
+      `Emulate a device: ${DEVICE_NAMES.join(" | ")}. Sets the user agent, ` +
+        "viewport and touch emulation, so markup gated on any of them is " +
+        "rendered. Without this, a mobile-only defect is invisible and the " +
+        "traversal looks clean.",
+    )
+    .option(
+      "--user-agent <ua>",
+      "Exact user agent string to send. Overrides --device's user agent, " +
+        "keeping its viewport.",
+    )
     .action(async (url, opts) => {
       // Validate before launching a browser so a typo fails fast.
+      const deviceOpts = resolveDeviceOptions(opts);
       if (opts.failOn && !(opts.failOn in SEVERITY_RANK)) {
         throw new Error(
           `--fail-on must be one of critical, moderate, minor (got "${opts.failOn}")`,
@@ -98,16 +116,21 @@ export function scanCommand() {
           typeof opts.chromeProfile === "string"
             ? opts.chromeProfile
             : defaultChromeProfileDir();
+        // Only the user agent here, deliberately. A persistent context is a
+        // real, visible browser window attached to a real profile, so forcing a
+        // phone viewport and touch emulation onto it is a surprising side
+        // effect — and it cannot be verified in this suite, which is headless.
         context = await chromium.launchPersistentContext(profileDir, {
           headless: false,
-          userAgent: CHROME_UA,
+          userAgent: deviceOpts.userAgent,
         });
       } else {
         browser = await chromium.launch({ headless: true });
         context = await browser.newContext({
-          // Some sites (e.g. Cloudflare-protected staging environments) block
-          // Playwright's default headless user agent; mimic a real Chrome UA.
-          userAgent: CHROME_UA,
+          // Defaults to a real Chrome UA, since some sites (e.g.
+          // Cloudflare-protected staging environments) block Playwright's
+          // headless default. --device / --user-agent override it.
+          ...deviceOpts,
         });
       }
       if (opts.localStorage.length) {

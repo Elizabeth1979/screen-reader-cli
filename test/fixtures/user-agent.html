@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>User agent fixture</title>
+  </head>
+  <body>
+    <h1>Always present</h1>
+    <div id="out"></div>
+    <script>
+      // Stands in for the real pattern this fixture exists for: a component that
+      // renders extra markup only for phones, so auditing under a desktop user
+      // agent reports a clean traversal for a page that has a real defect.
+      var mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      document.getElementById("out").innerHTML = mobile
+        ? "<h2>Mobile only heading</h2>"
+        : "";
+    </script>
+  </body>
+</html>

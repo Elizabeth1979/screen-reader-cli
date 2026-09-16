@@ -249,6 +249,46 @@ screenreader audit <url> --json           # JSON output
 screenreader audit <url> --max 1000       # Increase element limit (default: 500)
 ```
 
+### Auditing mobile — `--device` and `--user-agent`
+
+Both `audit` and `scan` send a desktop Chrome user agent by default. If a page
+renders different markup for phones, that default traverses the **desktop**
+branch and reports a clean result for a page that has a real defect — and a
+false clean looks exactly like a real one.
+
+```bash
+screenreader audit <url> --device iphone     # iPhone UA + 390x844 viewport
+screenreader audit <url> --device android    # Pixel UA + 412x915 viewport
+screenreader scan  <url> --device iphone
+screenreader audit <url> --user-agent "Mozilla/5.0 (iPhone; ...)"
+```
+
+`--device` sets the user agent, the viewport **and** touch emulation, because
+responsive code branches on any of the three — changing only one still misses
+the others. `--user-agent` overrides a preset's UA while keeping its viewport and
+touch, so `--device iphone --user-agent "..."` is a phone-sized touch window with
+your own UA.
+
+With `--chrome-profile`, only the user agent is applied: that path opens a real,
+visible browser window against a real profile, and resizing it is left alone
+deliberately.
+
+`--summary` prints the device and the exact user agent that was sent, so a
+traversal always records the conditions it ran under.
+
+Real example. A design-system sheet adds a visually-hidden copy of its header
+only when the user agent looks like a phone, which exposes the title twice:
+
+```
+$ screenreader audit <url> --summary
+Headings (0):                     # desktop branch — nothing found
+
+$ screenreader audit <url> --summary --device iphone
+Headings (2):
+  heading, Filters, level 2
+  heading, Filters, level 2       # the duplicate
+```
+
 ### `screenshot` — Capture elements or pages
 
 ```bash
