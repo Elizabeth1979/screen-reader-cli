@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { startDaemon, connectBrowser, stopDaemon } from "../daemon.js";
 import { createBridge } from "../bridge.js";
-import { collectKeyValue } from "../util.js";
+import { collectKeyValue, DEVICE_NAMES, resolveDeviceOptions } from "../util.js";
 
 export function auditCommand() {
   const audit = new Command("audit")
@@ -17,11 +17,27 @@ export function auditCommand() {
       collectKeyValue,
       [],
     )
+    .option(
+      "--device <name>",
+      `Emulate a device: ${DEVICE_NAMES.join(" | ")}. Sets the user agent, ` +
+        "viewport and touch emulation, so markup gated on any of them is " +
+        "rendered. Without this, a mobile-only defect is invisible and the " +
+        "traversal looks clean.",
+    )
+    .option(
+      "--user-agent <ua>",
+      "Exact user agent string to send. Overrides --device's user agent, " +
+        "keeping its viewport.",
+    )
     .action(async (url, opts) => {
+      // Fail before launching a browser if --device is misspelled.
+      const deviceOpts = resolveDeviceOptions(opts);
       await startDaemon();
       const browser = await connectBrowser();
       const bridge = await createBridge(browser, {
         localStorage: opts.localStorage,
+        device: opts.device,
+        userAgent: opts.userAgent,
       });
 
       try {
@@ -74,6 +90,10 @@ export function auditCommand() {
             headingCount: headings.length,
             landmarkCount: landmarks.length,
             linkCount: links.length,
+            // A traversal is only meaningful against the conditions it ran
+            // under; without these a false clean looks identical to a real one.
+            device: opts.device || "default",
+            userAgent: deviceOpts.userAgent,
           };
         }
 
@@ -89,6 +109,8 @@ export function auditCommand() {
             console.log(`Landmarks (${landmarks.length}):`);
             landmarks.forEach((l) => console.log(`  ${l}`));
             console.log(`Links: ${links.length}`);
+            console.log(`Device: ${opts.device || "default"}`);
+            console.log(`User agent: ${deviceOpts.userAgent}`);
           }
         }
       } finally {

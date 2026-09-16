@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CHROME_UA } from "./util.js";
+import { resolveDeviceOptions } from "./util.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -13,9 +13,12 @@ const VSR_BUNDLE_PATH = path.resolve(
 const VSR_BUNDLE = fs.readFileSync(VSR_BUNDLE_PATH, "utf-8");
 
 export async function createBridge(browser, opts = {}) {
+  // A page that renders different markup for phones cannot be audited under a
+  // desktop user agent: the traversal comes back clean because the mobile
+  // branch never rendered. `opts.device` / `opts.userAgent` override it.
   const context = await browser.newContext({
     bypassCSP: true,
-    userAgent: CHROME_UA,
+    ...resolveDeviceOptions(opts),
   });
   // Seed localStorage before any page script runs, so authenticated SPAs
   // (e.g. apps that read an access token from localStorage on boot) render
