@@ -1,14 +1,9 @@
 import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { resolveDeviceOptions } from "./util.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { resolveBundledAsset, resolveDeviceOptions } from "./util.js";
 
 // Read the VSR browser bundle once at module load time
-const VSR_BUNDLE_PATH = path.resolve(
-  __dirname,
-  "../node_modules/@guidepup/virtual-screen-reader/lib/esm/index.browser.js",
+const VSR_BUNDLE_PATH = resolveBundledAsset(
+  "@guidepup/virtual-screen-reader/browser.js",
 );
 const VSR_BUNDLE = fs.readFileSync(VSR_BUNDLE_PATH, "utf-8");
 

@@ -1,11 +1,9 @@
 import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { VIOLATION_CHECKS } from "./violations.js";
+import { resolveBundledAsset } from "../util.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const AXE_SOURCE = fs.readFileSync(
-  path.resolve(__dirname, "../../node_modules/axe-core/axe.min.js"),
+  resolveBundledAsset("axe-core/axe.min.js"),
   "utf-8",
 );
 
