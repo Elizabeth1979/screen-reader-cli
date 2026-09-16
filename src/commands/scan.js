@@ -163,6 +163,16 @@ export function scanCommand() {
 
         const results = await scan(page);
 
+        // A scan is only meaningful against the conditions it ran under: "no
+        // violations found" under a desktop user agent says nothing about the
+        // page's phone branch. --chrome-profile applies the user agent only,
+        // so say so rather than implying a full device emulation.
+        results.device =
+          opts.chromeProfile && opts.device
+            ? `${opts.device} (user agent only)`
+            : opts.device || "default";
+        results.userAgent = deviceOpts.userAgent;
+
         // Run AI analysis first (if requested) so it can be included in reports
         let aiAnalysis = null;
         let aiMeta = null;
@@ -223,9 +233,7 @@ export function scanCommand() {
             framework: opts.framework,
           });
           if (testCode) {
-            const outPath =
-              opts.output ||
-              "a11y-regression.test.js";
+            const outPath = opts.output || "a11y-regression.test.js";
             fs.writeFileSync(outPath, testCode, "utf-8");
             console.log(`\nTest file written: ${outPath}`);
           } else {
@@ -236,7 +244,9 @@ export function scanCommand() {
         if (opts.failOn) {
           const threshold = SEVERITY_RANK[opts.failOn];
           const failing = results.violations.filter(
-            (v) => (SEVERITY_RANK[v.severity] ?? SEVERITY_RANK.moderate) <= threshold,
+            (v) =>
+              (SEVERITY_RANK[v.severity] ?? SEVERITY_RANK.moderate) <=
+              threshold,
           ).length;
           if (failing > 0) {
             process.stderr.write(
@@ -271,6 +281,9 @@ function defaultChromeProfileDir() {
 function printTextReport(results) {
   console.log(`\nScreen Reader Scan: ${results.title}`);
   console.log(`URL: ${results.url}`);
+  console.log(
+    `Device: ${results.device ?? "default"} | User agent: ${results.userAgent ?? "(not recorded)"}`,
+  );
   const needsReviewCount = results.stats.needsReviewCount ?? 0;
   console.log(
     `DOM elements: ${results.stats.domElements} | Headings: ${results.stats.headingCount} | Landmarks: ${results.stats.landmarkCount} | Needs review: ${needsReviewCount}`,

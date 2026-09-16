@@ -105,4 +105,30 @@ describe("audit --device / --user-agent", () => {
       /--device must be one of/,
     );
   });
+
+  it("--device android renders the mobile branch too", () => {
+    const out = run("audit", FIXTURE, "--device", "android");
+    assert.ok(out.includes("Mobile only heading"), "android is a phone preset");
+  });
+
+  it("--device desktop stays on the desktop branch", () => {
+    const out = run("audit", FIXTURE, "--device", "desktop", "--summary");
+    assert.ok(!out.includes("Mobile only heading"));
+    assert.match(out, /Device: desktop/);
+  });
+});
+
+describe("scan --device", () => {
+  // scan reports its own conditions: without this, "no violations found" under
+  // a desktop user agent is indistinguishable from a genuinely clean page.
+  it("records the device and user agent in the report", () => {
+    const out = run("scan", FIXTURE, "--device", "iphone");
+    assert.match(out, /Device: iphone/);
+    assert.match(out, /User agent: .*iPhone/);
+  });
+
+  it("records the default when no device is given", () => {
+    const out = run("scan", FIXTURE);
+    assert.match(out, /Device: default/);
+  });
 });

@@ -273,8 +273,12 @@ With `--chrome-profile`, only the user agent is applied: that path opens a real,
 visible browser window against a real profile, and resizing it is left alone
 deliberately.
 
-`--summary` prints the device and the exact user agent that was sent, so a
-traversal always records the conditions it ran under.
+`audit --summary` and every `scan` report print the device and the exact user
+agent that was sent, so a run always records the conditions it ran under.
+
+`--device desktop` is not the same as passing nothing: it pins the viewport to
+1280x800, where the default leaves Playwright's own size in place. Use it when a
+run needs a fixed desktop size to compare against.
 
 Real example. A design-system sheet adds a visually-hidden copy of its header
 only when the user agent looks like a phone, which exposes the title twice:
