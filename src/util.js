@@ -1,6 +1,30 @@
 // Shared helpers used by multiple commands.
 
 import path from "node:path";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+
+/**
+ * Absolute path to a file inside one of our own dependencies.
+ *
+ * Never build these paths by hand. A hardcoded "../node_modules/<pkg>/..."
+ * assumes the dependency sits inside this package's own folder, which is only
+ * true for a global install — a package manager is free to hoist it to a
+ * shared parent (which npm does when this is installed as a dependency) or to
+ * a content-addressed store (pnpm, Yarn PnP). The path then does not exist and
+ * the process dies at import time, before any argument parsing, so even
+ * `--help` fails with a raw ENOENT.
+ *
+ * Node's own resolver knows where the file landed in every one of those
+ * layouts, so ask it instead of guessing. Passing a package's public entry
+ * point ("@guidepup/virtual-screen-reader/browser.js") rather than an internal
+ * build path also means a dependency reorganising its own lib/ directory
+ * cannot break us.
+ */
+export function resolveBundledAsset(specifier) {
+  return require.resolve(specifier);
+}
 
 // Turn a CLI-provided target (URL or local file path) into something
 // page.goto accepts.

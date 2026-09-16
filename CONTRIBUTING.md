@@ -45,6 +45,10 @@ the one-time `npx @guidepup/setup`.
 - Keep the code style of the surrounding files (ES modules, no build step).
 - Add or update a test for behavior changes — `test/scan.test.js` shows the
   pattern of invoking the CLI as a subprocess against a fixture.
+- Never build a path into `node_modules` by hand. Use `resolveBundledAsset()`
+  from `src/util.js`, which asks Node where the file actually landed — a
+  hand-built path assumes a layout the package manager is free to change, and
+  breaks the CLI at import time when it does. A test enforces this.
 - Run `npm test` before opening a PR.
 
 ## Releasing (maintainers)
