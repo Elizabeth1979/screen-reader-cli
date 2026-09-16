@@ -52,13 +52,32 @@ the one-time `npx @guidepup/setup`.
 Publishing to npm is automated. One-time setup: create a granular npm
 access token (npmjs.com → Access Tokens → Generate New Token → choose
 "Automation") and add it as the `NPM_TOKEN` repository secret
-(Settings → Secrets and variables → Actions). Then, to release:
+(Settings → Secrets and variables → Actions).
 
-1. Bump `version` in package.json (e.g. `0.1.0` → `0.2.0`) and merge.
-2. Either publish a GitHub Release for the new tag, or open
-   Actions → "Publish to npm" → Run workflow.
+**To release: bump `version` in package.json and merge to `main`. That is the
+whole procedure.** Bump it in the same PR as the change when you can — then
+merging ships it, with no second step to remember.
 
-The workflow runs the full test suite first — a red build never publishes.
+On every push to `main` the workflow compares the version in package.json
+against the versions already on npm:
+
+- **Not on npm** → it runs the full test suite, publishes, and tags the commit
+  `v<version>`. A red build never publishes.
+- **Already on npm** → it stops in seconds without installing a browser. So an
+  ordinary commit to `main` costs nothing, and re-running is harmless.
+
+Because the check is "is this version on npm", the workflow is safe to run
+repeatedly and can never double-publish. npm itself also refuses to replace an
+existing version, so a forgotten bump fails loudly rather than overwriting a
+release.
+
+`Actions → "Publish to npm" → Run workflow` and publishing a GitHub Release
+both still work, for re-running a failed publish or shipping from an older
+commit.
+
+Tags are created after a successful publish, not before, so a tag always means
+that version actually went out. The workflow does not create GitHub Releases —
+write those by hand from the tag when a version deserves notes.
 
 ## Reporting bugs
 
