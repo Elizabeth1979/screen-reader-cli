@@ -33,6 +33,27 @@ default; `sr <subcommand>` forwards to the CLI.
 - Verify docs page after editing it: `node bin/cli.js scan docs/index.html
 --fail-on minor` must exit 0 — the site advertises that it passes.
 
+## Contributing from the work machine
+
+Work here goes **fork → branch → PR**, never a direct push to `main`, even
+though this is a solo repo: the contributor seat is deliberate (see
+"Produce here, consume elsewhere" below). The clone at `~/forks/screen-reader-cli`
+is permanent — do not delete it after a PR; the repo is under a megabyte and
+re-cloning costs a Playwright browser download every time.
+
+One command does the push and the PR:
+
+```bash
+bash ~/elli-vault-melio/Scripts/screen-reader-cli/contribute-pr.sh "<title>" <body.md>
+```
+
+**No `gh auth switch`, ever.** The fork is owned by the default gh account, so
+pushing to it and opening the PR both work as-is. `gh auth switch` is global —
+switch and forget to switch back, and unrelated work in other sessions starts
+failing in a way that looks like a broken token. Commit authorship is separate
+and already correct: the clone is configured with the personal email, so commits
+stay personal whoever pushes.
+
 ## Releasing
 
 Version bump in package.json → merge → Actions → "Publish to npm" → Run
