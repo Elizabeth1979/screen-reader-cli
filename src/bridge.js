@@ -18,12 +18,21 @@ export async function createBridge(browser, opts = {}) {
   // Seed localStorage before any page script runs, so authenticated SPAs
   // (e.g. apps that read an access token from localStorage on boot) render
   // their logged-in state instead of redirecting to a login page.
-  if (opts.localStorage?.length) {
-    await context.addInitScript((entries) => {
-      for (const [key, value] of entries) {
-        window.localStorage.setItem(key, value);
-      }
-    }, opts.localStorage);
+  // sessionStorage alongside it: components that gate content on prior-session
+  // data (recent searches, a dismissed banner) read that store instead, and
+  // without it their populated state is unreachable.
+  if (opts.localStorage?.length || opts.sessionStorage?.length) {
+    await context.addInitScript(
+      ({ local, session }) => {
+        for (const [key, value] of local) {
+          window.localStorage.setItem(key, value);
+        }
+        for (const [key, value] of session) {
+          window.sessionStorage.setItem(key, value);
+        }
+      },
+      { local: opts.localStorage ?? [], session: opts.sessionStorage ?? [] },
+    );
   }
   let page = null;
   let vsrStarted = false;

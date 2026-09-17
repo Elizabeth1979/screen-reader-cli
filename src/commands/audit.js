@@ -1,7 +1,13 @@
 import { Command } from "commander";
 import { startDaemon, connectBrowser, stopDaemon } from "../daemon.js";
 import { createBridge } from "../bridge.js";
-import { collectKeyValue, DEVICE_NAMES, resolveDeviceOptions } from "../util.js";
+import {
+  collectKeyValue,
+  collectSelectorValue,
+  DEVICE_NAMES,
+  resolveDeviceOptions,
+} from "../util.js";
+import { openAndSettle, typeIntoFields } from "../page-state.js";
 
 export function auditCommand() {
   const audit = new Command("audit")
@@ -16,6 +22,48 @@ export function auditCommand() {
         "reads on boot). Repeatable.",
       collectKeyValue,
       [],
+    )
+    .option(
+      "--session-storage <key=value>",
+      "Seed sessionStorage before the page loads. Mirrors --local-storage; " +
+        "components that gate content on prior-session data (recent searches, " +
+        "a dismissed banner) read this store. Repeatable.",
+      collectKeyValue,
+      [],
+    )
+    .option(
+      "--open <selector>",
+      "Before traversing, click this selector to open an overlay " +
+        "(dialog/dropdown/drawer/popover). Without it the traversal of a " +
+        "closed component is just its trigger button and 'end of document' — " +
+        "the content worth auditing is never reached. Comma-separate " +
+        "fallbacks; first match wins.",
+    )
+    .option(
+      "--open-wait <ms>",
+      "Milliseconds to wait after the --open click before traversing",
+      "900",
+    )
+    .option(
+      "--open-target <selector>",
+      "After --open, wait until this selector appears before traversing " +
+        '(e.g. "[role=dialog]" for a modal, "[role=menu]" for a menu). ' +
+        "Falls back to --open-wait on timeout or when omitted.",
+    )
+    .option(
+      "--type <selector=text>",
+      "After --open, type text into a field, for components that render " +
+        "their content only once a query exists. Keys are sent one at a time " +
+        "so per-keystroke handlers fire. Repeatable; '=' inside a selector " +
+        "is safe.",
+      collectSelectorValue,
+      [],
+    )
+    .option(
+      "--type-wait <ms>",
+      "Milliseconds to wait after the last --type keystroke, for components " +
+        "that debounce input or fetch results before rendering.",
+      "600",
     )
     .option(
       "--device <name>",
@@ -36,12 +84,24 @@ export function auditCommand() {
       const browser = await connectBrowser();
       const bridge = await createBridge(browser, {
         localStorage: opts.localStorage,
+        sessionStorage: opts.sessionStorage,
         device: opts.device,
         userAgent: opts.userAgent,
       });
 
       try {
         await bridge.openPage(url);
+
+        // Put the component into the state worth traversing. Safe to do after
+        // the screen reader has started: it tracks the live DOM, so nodes that
+        // appear now are announced like any other.
+        if (opts.open) {
+          await openAndSettle(bridge.getPage(), opts);
+        }
+        if (opts.type.length) {
+          await typeIntoFields(bridge.getPage(), opts);
+        }
+
         const phrases = [];
         const headings = [];
         const landmarks = [];

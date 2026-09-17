@@ -9,7 +9,7 @@
     <script>
       document.getElementById("open").addEventListener("click", () => {
         // Simulate a portal-based overlay that mounts a beat after the click
-        // (like Penny's Chakra/floating-ui modals). A fixed short wait would
+        // (like a Chakra/floating-ui modal). A fixed short wait would
         // miss this; --open-target must wait for [role=dialog] to appear.
         setTimeout(() => {
           const d = document.createElement("div");

@@ -7,7 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import { chromium } from "playwright";
 import { scan } from "../src/services/scanner.js";
-import { openAndSettle } from "../src/commands/scan.js";
+import { openAndSettle } from "../src/page-state.js";
 import { splitSelectorValue } from "../src/util.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

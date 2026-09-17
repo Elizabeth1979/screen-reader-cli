@@ -66,7 +66,7 @@ A full repo review found the code healthy but not shareable. Fixed:
   separate process, so the "background browser" died as soon as the
   command finished. The commands could never work; honest CLIs don't
   advertise broken features. (Internal per-command browser reuse stayed.)
-- **Deleted `scan-penny-open.mjs`** — a private one-off debug script.
+- **Deleted a private one-off debug script** that had been committed by mistake.
 - Added: LICENSE (MIT — the field claimed it, the file didn't exist),
   `files` allowlist (npm tarball is ~22 files, no tests/skills), `engines`,
   repository metadata, CI workflow (Node 20/22 + Chromium), CONTRIBUTING,
@@ -140,7 +140,7 @@ after v0.1.0 was published.
 
 ### [PR #9](https://github.com/Elizabeth1979/screen-reader-cli/pull/9) — Report redesign: grouping + element screenshots
 
-Driven by the first real-world scan (Melio's homepage): 67 table rows that
+Driven by the first real-world scan of a production site: 67 table rows that
 were really just 2 distinct problems, with no way to *see* the failing
 elements. Changes:
 

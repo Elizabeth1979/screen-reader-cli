@@ -60,7 +60,7 @@ font Atkinson Hyperlegible; must keep passing `--fail-on minor`.
   first).
 - **Bugs found while using the tool elsewhere → open a GitHub issue here, do
   not fix in place.** The tool is most often exercised from other contexts
-  (e.g. QA'ing a product on the Melio machine), where a fix can't be properly
+  (e.g. QA'ing a product on the work machine), where a fix can't be properly
   tested — live-mode work in particular needs VoiceOver to take over the
   machine for minutes per run. File an issue with the root cause and the
   proposed fix written into it (`gh issue create`), then implement in a
@@ -68,13 +68,13 @@ font Atkinson Hyperlegible; must keep passing `--fail-on minor`.
   testable; an issue is for when the diagnosis is ahead of the test loop.
 - **Produce here, consume elsewhere — deliberate separation.** This repo is
   maintained/published from Elizabeth's personal `Elizabeth1979` account. On
-  her Melio work machine she _consumes_ the tool as a plain user to QA the
-  Melio product — the intended consume path there is the **published npx / npm
-  package**, not a linked dev clone, so she dogfoods the exact artifact a Melio
-  dev would install. (As of 2026-07-26 the Melio machine is still on an
+  her work machine she _consumes_ the tool as a plain user to QA a
+  product there — the intended consume path there is the **published npx / npm
+  package**, not a linked dev clone, so she dogfoods the exact artifact any
+  dev would install. (As of 2026-07-26 the work machine is still on an
   `npm link` clone because the tool is under active development — fast
   iteration beats dogfooding until it stabilizes; flip to the package later.)
-  Keep Melio identity off this repo — it stays a personal asset.
+  Keep work identity off this repo — it stays a personal asset.
 
 ## Working with the maintainer
 
