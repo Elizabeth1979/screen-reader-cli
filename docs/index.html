@@ -170,7 +170,12 @@
       box-shadow: 0 10px 30px rgba(20, 22, 26, 0.18);
       max-width: 26em;
     }
-    .bubble .who {
+    /* Its own class, not .who. The card grid below also uses .who, and its
+       white card background was landing on this label — pale blue on
+       near-white, 1.62:1. Renaming removes the collision at the source; an
+       override here would leave two components sharing a name and waiting to
+       collide again. */
+    .bubble .speaker {
       display: block;
       font-size: 12px;
       letter-spacing: 0.1em;
@@ -454,15 +459,15 @@
       </div>
       <figure class="caption-demo">
         <div class="bubble rise">
-          <span class="who">Screen reader says</span>
+          <span class="speaker">Screen reader says</span>
           heading level 1, What does your page sound like?
         </div>
         <div class="bubble rise">
-          <span class="who">Screen reader says</span>
+          <span class="speaker">Screen reader says</span>
           link, Get started
         </div>
         <div class="bubble rise">
-          <span class="who">Screen reader says</span>
+          <span class="speaker">Screen reader says</span>
           image — <em>…and nothing else. This is what a missing alt text sounds like.</em>
         </div>
         <figcaption>Real screen readers announce every element. When the page is built well, the announcements make sense. When it isn't, users hear silence or nonsense.</figcaption>
