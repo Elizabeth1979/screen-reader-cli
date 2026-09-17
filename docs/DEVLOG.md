@@ -6,6 +6,37 @@ Newest entries first.
 
 ---
 
+## 2026-09-17 — The docs page stopped passing its own test
+
+`node bin/cli.js scan docs/index.html --fail-on minor` was exiting 1 on three
+colour-contrast violations. The site advertises that it passes its own check, so
+that claim had quietly become false.
+
+**Cause: a class-name collision, not a colour choice.** Two unrelated components
+both used `.who` — the "who is this for" card grid, and the small
+"SCREEN READER SAYS" label inside the dark caption bubble. The card rule sets a
+white card background, so that white landed behind the bubble's label, which is
+coloured pale blue precisely because it was designed to sit on the dark bubble.
+Pale blue on near-white measured **1.62:1** against a 4.5:1 requirement.
+
+Fixed by renaming the label to its own `.speaker` class. An override
+(`background: transparent` on `.bubble .who`) would have cleared the violation
+while leaving two components sharing a name and waiting to collide again.
+
+Worth recording how it was diagnosed, because the first two guesses were wrong.
+The element is animated and named `.bubble.rise`, which invited "the contrast is
+being sampled mid-animation" — plausible, and false. Reading axe's own measured
+values settled it in one step: it reported `bgColor: #fffefb`, a near-white the
+bubble does not contain anywhere. Walking the ancestor chain then showed the
+white was painted by the span itself, not inherited. The guess came from the
+element's name; the answer came from the data.
+
+Verified with the tool itself: `scan docs/index.html --fail-on minor` now exits
+0 with zero violations, and the label's computed background is transparent, so
+it sits on the bubble at roughly 10:1.
+
+---
+
 ## 2026-09-17 — Docs for the reach flags; #12 was already fixed
 
 README gains a "Reaching a component's real state" section covering `--open`,
