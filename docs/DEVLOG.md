@@ -6,6 +6,46 @@ Newest entries first.
 
 ---
 
+## 2026-09-17 — Reaching states a click alone cannot open
+
+`--open` could click a component open, but plenty of components are still
+empty once open. A command palette renders its results only after you type
+something, or if it remembers your earlier searches. Open it with a click and
+nothing is there — so the scan reported a clean pass over an empty dialog,
+and the option rows that three accessibility tickets were actually about were
+never looked at ([#15](https://github.com/Elizabeth1979/screen-reader-cli/issues/15)).
+
+Two new ways to reach that state:
+
+- **`--type <selector>=<text>`** — types into a field after the overlay opens.
+  Keys are sent one at a time rather than the value being set in one go,
+  because most comboboxes and palettes branch on each keystroke, not on a
+  single change event. Repeatable. `--type-wait` (default 600 ms) covers
+  components that debounce before rendering.
+- **`--session-storage <key=value>`** — seeds sessionStorage before the page
+  loads, mirroring `--local-storage`. Components that gate content on
+  prior-session data (recent searches, a dismissed banner) read this store,
+  and only localStorage could be seeded before.
+
+Parsing `<selector>=<text>` needed its own splitter rather than the existing
+`key=value` one. CSS attribute selectors carry their own equals sign and are
+the common case here, so splitting on the first `=` would turn
+`[role=combobox]=hello` into the selector `[role`. Splitting on the last one
+breaks the other way, on typed text containing an equals sign. The splitter
+takes the first `=` that sits outside brackets, parentheses and quotes — the
+one place a selector cannot put one — so both forms split where a reader
+expects.
+
+**Known limit:** the test fixture renders synchronously. A real palette
+debounces and fetches, so the async path is covered by `--type-wait` by
+design but is not exercised by the suite.
+
+Not built: the issue also floated warning when an opened subtree is
+suspiciously small. It guesses at a threshold and the reach mechanisms are
+the real fix, so it was left out.
+
+---
+
 ## 2026-07-24 — From personal tool to public product
 
 One long working session took the repo from "works on my machine" to a

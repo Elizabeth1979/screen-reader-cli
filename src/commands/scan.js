@@ -13,6 +13,7 @@ import {
 } from "../services/ai-analyzer.js";
 import {
   collectKeyValue,
+  collectSelectorValue,
   DEVICE_NAMES,
   resolveDeviceOptions,
   resolveTarget,
@@ -69,6 +70,30 @@ export function scanCommand() {
         "reads on boot). Repeatable.",
       collectKeyValue,
       [],
+    )
+    .option(
+      "--session-storage <key=value>",
+      "Seed sessionStorage before the page loads. Mirrors --local-storage; " +
+        "components that gate content on prior-session data (recent searches, " +
+        "a dismissed banner) read this store, not localStorage. Repeatable.",
+      collectKeyValue,
+      [],
+    )
+    .option(
+      "--type <selector=text>",
+      "After --open, type text into a field. Components that render their " +
+        "content only once a query exists (search, autocomplete, filters) are " +
+        "otherwise unreachable: the overlay opens empty and scans clean. " +
+        "Keys are sent one at a time so per-keystroke handlers fire. " +
+        "Repeatable; '=' inside a selector is safe.",
+      collectSelectorValue,
+      [],
+    )
+    .option(
+      "--type-wait <ms>",
+      "Milliseconds to wait after the last --type keystroke, for components " +
+        "that debounce input or fetch results before rendering.",
+      "600",
     )
     .option(
       "--settle <ms>",
@@ -133,12 +158,20 @@ export function scanCommand() {
           ...deviceOpts,
         });
       }
-      if (opts.localStorage.length) {
-        await context.addInitScript((entries) => {
-          for (const [key, value] of entries) {
-            window.localStorage.setItem(key, value);
-          }
-        }, opts.localStorage);
+      if (opts.localStorage.length || opts.sessionStorage.length) {
+        // One init script for both stores: it runs before any page script, so
+        // a component reading either on boot sees the seeded value.
+        await context.addInitScript(
+          ({ local, session }) => {
+            for (const [key, value] of local) {
+              window.localStorage.setItem(key, value);
+            }
+            for (const [key, value] of session) {
+              window.sessionStorage.setItem(key, value);
+            }
+          },
+          { local: opts.localStorage, session: opts.sessionStorage },
+        );
       }
       const page = await context.newPage();
 
@@ -159,6 +192,13 @@ export function scanCommand() {
         // --open: click to reveal an overlay whose contents axe can't see while closed.
         if (opts.open) {
           await openAndSettle(page, opts);
+        }
+
+        // --type: send keystrokes into the now-open state. Runs after the open
+        // settle so the field exists, and before the scan so what it renders is
+        // part of what gets measured.
+        if (opts.type.length) {
+          await typeIntoFields(page, opts);
         }
 
         const results = await scan(page);
@@ -368,4 +408,36 @@ export async function openAndSettle(page, opts) {
     }
   }
   await page.waitForTimeout(parseInt(opts.openWait, 10) || 900);
+}
+
+// Type into one or more fields after the overlay has opened, then settle.
+//
+// pressSequentially, not fill(): fill() sets the value and dispatches a single
+// input event, which is enough for a synchronous handler but misses components
+// that branch on keydown/keyup (most command palettes and comboboxes do). Keys
+// are sent one at a time so those handlers run, same as a person typing.
+//
+// A selector that matches nothing warns and continues rather than throwing —
+// the same contract as --open, so a stale selector degrades to a weaker scan
+// instead of no scan at all. Exported for tests.
+export async function typeIntoFields(page, opts) {
+  for (const [selector, text] of opts.type) {
+    const loc = page.locator(selector).first();
+    if ((await loc.count()) === 0) {
+      process.stderr.write(
+        `⚠ --type: no element matched "${selector}" — skipping\n`,
+      );
+      continue;
+    }
+    try {
+      await loc.click({ timeout: 4000 });
+      await loc.fill("");
+      await loc.pressSequentially(text, { delay: 20, timeout: 10000 });
+    } catch (err) {
+      process.stderr.write(
+        `⚠ --type: could not type into "${selector}" (${err.message}) — skipping\n`,
+      );
+    }
+  }
+  await page.waitForTimeout(parseInt(opts.typeWait, 10) || 600);
 }
