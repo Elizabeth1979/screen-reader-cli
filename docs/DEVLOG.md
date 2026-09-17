@@ -6,6 +6,38 @@ Newest entries first.
 
 ---
 
+## 2026-09-17 — One shared way to reach the state worth measuring
+
+`audit` walks a page element by element and prints what a screen reader would
+say. Point it at a modal and the whole traversal was "Open Modal button, end of
+document" — the dialog's own heading, body and close button were never reached,
+because the dialog was never opened. `scan` could click a component open before
+measuring it; `audit` could not
+([#22](https://github.com/Elizabeth1979/screen-reader-cli/issues/22)).
+
+`audit` now takes the same reach flags `scan` has: `--open`, `--open-wait`,
+`--open-target`, `--type`, `--type-wait` and `--session-storage`. Giving it only
+`--open` would have fixed modals and left anything gated on typed input still
+unreachable — the same gap one level down.
+
+They are the same code, not a copy. `openAndSettle` and `typeIntoFields` moved
+out of `scan.js` into **`src/page-state.js`**, which both commands import. What
+state a component is in is a question about the page, not about the engine
+looking at it, so a flag existing on one command and not the other is exactly
+the bug being fixed. They live there rather than in `util.js` because `util.js`
+holds small pure helpers, while these drive a live page and warn on stderr.
+
+Two things worth recording:
+
+- **The virtual screen reader tracks the live DOM.** Nodes that appear after it
+  starts are announced normally, so the overlay can be opened after `openPage`
+  rather than needing a new hook before the reader boots. Checked directly
+  against a fixture before designing around it.
+- **`--session-storage` needed seeding in the bridge too**, not just in `scan`,
+  since `audit` builds its own browser context.
+
+---
+
 ## 2026-09-17 — Reaching states a click alone cannot open
 
 `--open` could click a component open, but plenty of components are still

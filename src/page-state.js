@@ -4,7 +4,7 @@
 // Shared by scan (axe) and audit (virtual screen reader), because "what state
 // is the component in" is a question about the page, not about the engine —
 // and a flag that exists on only one of them is the bug these were written for
-// (issues #13 and #15). Both take a Playwright page, so neither knows or cares
+// (issues #22 and #15). Both take a Playwright page, so neither knows or cares
 // which command called it.
 //
 // These live here rather than in util.js: util.js holds small pure helpers,
