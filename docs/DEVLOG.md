@@ -6,6 +6,27 @@ Newest entries first.
 
 ---
 
+## 2026-09-17 — Docs for the reach flags; #12 was already fixed
+
+README gains a "Reaching a component's real state" section covering `--open`,
+`--open-target`, `--open-wait`, `--type`, `--type-wait`, `--local-storage` and
+`--session-storage` in one table, for both `audit` and `scan`.
+
+Issue #12 (README leading with clone instead of the npm install) turned out to
+be **already fixed** — on 2026-07-24, two weeks before the issue was filed. The
+issue was written against the published 0.1.0 tarball, whose README still had
+the old text; the repo had moved on but not been republished. Verified by
+downloading the current published package and reading its README, not by
+reading the repo. Closed, not reimplemented.
+
+Also noted, not fixed here: `docs/index.html` no longer passes its own
+`--fail-on minor` check. An animated `.bubble` element fails colour contrast,
+and the count varies between runs because the contrast is sampled mid-animation.
+Pre-existing on `main` — confirmed by scanning `main` in a scratch worktree —
+so it is out of scope for this branch and wants its own fix.
+
+---
+
 ## 2026-09-17 — One shared way to reach the state worth measuring
 
 `audit` walks a page element by element and prints what a screen reader would
