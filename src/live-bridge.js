@@ -36,10 +36,28 @@ export async function createLiveBridge(readerName) {
   return {
     readerName: name,
 
-    async start() {
+    // Guidepup polls for VoiceOver to come up and gives up after 10s by
+    // default. That is not enough on a cold start: VoiceOver's own launch takes
+    // several seconds before it answers AppleScript, and guidepup stores and
+    // rewrites VoiceOver's settings before it even begins waiting. The timeout
+    // then fires with "Timed out waiting for VoiceOver to be running" while
+    // VoiceOver is in fact starting — and it is left running, holding the
+    // machine, because the failure happened mid-startup.
+    async start({ timeout = 45000 } = {}) {
       if (!started) {
-        await reader.start();
-        started = true;
+        try {
+          await reader.start({ pollTimeout: timeout });
+          started = true;
+        } catch (err) {
+          // Leaving a half-started screen reader behind takes over the user's
+          // machine with no obvious way back, so always try to put it away.
+          await reader.stop().catch(() => {});
+          throw new Error(
+            `${err.message}. VoiceOver did not finish starting within ${timeout}ms. ` +
+              `Check that automation is permitted (npx @guidepup/setup setup), ` +
+              `or raise the limit with --start-timeout.`,
+          );
+        }
       }
     },
 
