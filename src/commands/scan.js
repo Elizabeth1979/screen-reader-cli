@@ -13,10 +13,12 @@ import {
 } from "../services/ai-analyzer.js";
 import {
   collectKeyValue,
+  collectSelectorValue,
   DEVICE_NAMES,
   resolveDeviceOptions,
   resolveTarget,
 } from "../util.js";
+import { openAndSettle, typeIntoFields } from "../page-state.js";
 
 // Lower rank = more severe. --fail-on <s> fails when any violation's rank
 // is <= the threshold's rank.
@@ -69,6 +71,30 @@ export function scanCommand() {
         "reads on boot). Repeatable.",
       collectKeyValue,
       [],
+    )
+    .option(
+      "--session-storage <key=value>",
+      "Seed sessionStorage before the page loads. Mirrors --local-storage; " +
+        "components that gate content on prior-session data (recent searches, " +
+        "a dismissed banner) read this store, not localStorage. Repeatable.",
+      collectKeyValue,
+      [],
+    )
+    .option(
+      "--type <selector=text>",
+      "After --open, type text into a field. Components that render their " +
+        "content only once a query exists (search, autocomplete, filters) are " +
+        "otherwise unreachable: the overlay opens empty and scans clean. " +
+        "Keys are sent one at a time so per-keystroke handlers fire. " +
+        "Repeatable; '=' inside a selector is safe.",
+      collectSelectorValue,
+      [],
+    )
+    .option(
+      "--type-wait <ms>",
+      "Milliseconds to wait after the last --type keystroke, for components " +
+        "that debounce input or fetch results before rendering.",
+      "600",
     )
     .option(
       "--settle <ms>",
@@ -133,12 +159,20 @@ export function scanCommand() {
           ...deviceOpts,
         });
       }
-      if (opts.localStorage.length) {
-        await context.addInitScript((entries) => {
-          for (const [key, value] of entries) {
-            window.localStorage.setItem(key, value);
-          }
-        }, opts.localStorage);
+      if (opts.localStorage.length || opts.sessionStorage.length) {
+        // One init script for both stores: it runs before any page script, so
+        // a component reading either on boot sees the seeded value.
+        await context.addInitScript(
+          ({ local, session }) => {
+            for (const [key, value] of local) {
+              window.localStorage.setItem(key, value);
+            }
+            for (const [key, value] of session) {
+              window.sessionStorage.setItem(key, value);
+            }
+          },
+          { local: opts.localStorage, session: opts.sessionStorage },
+        );
       }
       const page = await context.newPage();
 
@@ -159,6 +193,13 @@ export function scanCommand() {
         // --open: click to reveal an overlay whose contents axe can't see while closed.
         if (opts.open) {
           await openAndSettle(page, opts);
+        }
+
+        // --type: send keystrokes into the now-open state. Runs after the open
+        // settle so the field exists, and before the scan so what it renders is
+        // part of what gets measured.
+        if (opts.type.length) {
+          await typeIntoFields(page, opts);
         }
 
         const results = await scan(page);
@@ -334,38 +375,4 @@ function printTextReport(results) {
       `${"  ".repeat(h.level - 1)}h${h.level}: ${h.text.slice(0, 80)}`,
     );
   }
-}
-
-// Click the --open selector to reveal an overlay, then settle before scanning.
-// Settle = wait for --open-target to appear (portal/overlay safe); fall back to
-// the fixed --open-wait on timeout or when no target is given. Exported for tests.
-export async function openAndSettle(page, opts) {
-  let opened = false;
-  for (const sel of (opts.open || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)) {
-    const loc = page.locator(sel).first();
-    if ((await loc.count()) > 0) {
-      await loc.click({ timeout: 4000 }).catch(() => {});
-      opened = true;
-      break;
-    }
-  }
-  if (!opened) {
-    process.stderr.write(
-      `⚠ --open: no element matched "${opts.open}" — scanning closed state\n`,
-    );
-  }
-  if (opts.openTarget) {
-    try {
-      await page.waitForSelector(opts.openTarget, { timeout: 5000 });
-      return;
-    } catch {
-      process.stderr.write(
-        `⚠ --open-target "${opts.openTarget}" not found in 5s — falling back to fixed wait\n`,
-      );
-    }
-  }
-  await page.waitForTimeout(parseInt(opts.openWait, 10) || 900);
 }

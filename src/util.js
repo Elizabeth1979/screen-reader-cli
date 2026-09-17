@@ -99,3 +99,42 @@ export function collectKeyValue(value, previous) {
   previous.push([value.slice(0, eq), value.slice(eq + 1)]);
   return previous;
 }
+
+/**
+ * Splits a "<selector>=<text>" pair for --type.
+ *
+ * Cannot reuse collectKeyValue's "first = wins" rule: CSS attribute selectors
+ * contain their own equals sign, and they are the common case here
+ * ("[role=combobox]=hello"). Splitting on the first one would yield the
+ * selector "[role" and never match anything.
+ *
+ * Splitting on the *last* one instead breaks the opposite way, on typed text
+ * that contains an equals sign. So find the first separator that sits outside
+ * brackets, parentheses and quotes — the one place a selector cannot put one.
+ * Both "[role=combobox]=hello" and "#q=a=b" then split where a reader expects.
+ */
+export function splitSelectorValue(pair) {
+  let depth = 0;
+  let quote = null;
+  for (let i = 0; i < pair.length; i++) {
+    const ch = pair[i];
+    if (quote) {
+      if (ch === "\\") i++;
+      else if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === "[" || ch === "(") depth++;
+    else if (ch === "]" || ch === ")") depth--;
+    else if (ch === "=" && depth === 0) {
+      return [pair.slice(0, i), pair.slice(i + 1)];
+    }
+  }
+  throw new Error(`Expected selector=text, got "${pair}"`);
+}
+
+// Accumulator for the repeatable --type option.
+export function collectSelectorValue(value, previous) {
+  previous.push(splitSelectorValue(value));
+  return previous;
+}

@@ -7,7 +7,8 @@ import fs from "node:fs";
 import os from "node:os";
 import { chromium } from "playwright";
 import { scan } from "../src/services/scanner.js";
-import { openAndSettle } from "../src/commands/scan.js";
+import { openAndSettle } from "../src/page-state.js";
+import { splitSelectorValue } from "../src/util.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CLI = path.resolve(__dirname, "../bin/cli.js");
@@ -388,4 +389,126 @@ test("openAndSettle waits for --open-target before resolving (portal overlay)", 
   } finally {
     await browser.close();
   }
+});
+
+// --- #15: reaching states that need typed input or sessionStorage -----------
+// The palette fixture renders its listbox only when a query has been typed OR
+// sessionStorage holds prior searches. With neither, scan sees an empty dialog
+// and reports a clean pass — the state every ticket described is unreachable.
+
+const PALETTE_FIXTURE = `file://${path.resolve(__dirname, "fixtures/palette.html")}`;
+
+describe("splitSelectorValue", () => {
+  it("splits a plain selector from its value", () => {
+    assert.deepEqual(splitSelectorValue("#q=test"), ["#q", "test"]);
+  });
+
+  it("ignores '=' inside an attribute selector", () => {
+    assert.deepEqual(splitSelectorValue("[role=combobox]=hello"), [
+      "[role=combobox]",
+      "hello",
+    ]);
+  });
+
+  it("ignores '=' inside quotes", () => {
+    assert.deepEqual(splitSelectorValue('input[name="a=b"]=x'), [
+      'input[name="a=b"]',
+      "x",
+    ]);
+  });
+
+  it("keeps '=' that appears inside the value", () => {
+    assert.deepEqual(splitSelectorValue("#q=a=b"), ["#q", "a=b"]);
+  });
+
+  it("allows an empty value (clearing a field)", () => {
+    assert.deepEqual(splitSelectorValue("#q="), ["#q", ""]);
+  });
+
+  it("throws when there is no separator", () => {
+    assert.throws(() => splitSelectorValue("#q"), /selector=text/);
+  });
+});
+
+test("--type reaches a state that only renders after keystrokes", () => {
+  const output = run(
+    "scan",
+    PALETTE_FIXTURE,
+    "--json",
+    "--open",
+    "#open",
+    "--open-target",
+    "[role=dialog]",
+    "--type",
+    "#q=invoice",
+  );
+  const results = JSON.parse(output);
+  const roles = results.domOrder.map((n) => n.role ?? n.tag ?? "");
+  assert.ok(
+    JSON.stringify(results.domOrder).includes("option"),
+    `expected option rows in DOM order, got roles: ${roles.join(", ")}`,
+  );
+  assert.ok(
+    results.stats.domElements > 3,
+    `expected more than the 3 closed-state elements, got ${results.stats.domElements}`,
+  );
+});
+
+test("--session-storage reaches a state gated on prior-session data", () => {
+  const output = run(
+    "scan",
+    PALETTE_FIXTURE,
+    "--json",
+    "--open",
+    "#open",
+    "--open-target",
+    "[role=dialog]",
+    "--session-storage",
+    'recent=["invoice","vendor"]',
+  );
+  const results = JSON.parse(output);
+  assert.ok(
+    JSON.stringify(results.domOrder).includes("option"),
+    "expected seeded option rows in DOM order",
+  );
+  assert.ok(
+    results.stats.domElements > 3,
+    `expected more than the 3 closed-state elements, got ${results.stats.domElements}`,
+  );
+});
+
+test("without --type or --session-storage the palette is still an empty shell", () => {
+  const output = run(
+    "scan",
+    PALETTE_FIXTURE,
+    "--json",
+    "--open",
+    "#open",
+    "--open-target",
+    "[role=dialog]",
+  );
+  const results = JSON.parse(output);
+  assert.ok(
+    !JSON.stringify(results.domOrder).includes('"option"'),
+    "baseline: no option rows without a reach mechanism",
+  );
+});
+
+test("--type warns and continues when the selector matches nothing", () => {
+  const output = execFileSync(
+    "node",
+    [
+      CLI,
+      "scan",
+      PALETTE_FIXTURE,
+      "--open",
+      "#open",
+      "--open-target",
+      "[role=dialog]",
+      "--type",
+      "#nope=x",
+    ],
+    { encoding: "utf-8", timeout: 60_000, stdio: ["pipe", "pipe", "pipe"] },
+  );
+  assert.ok(output.includes("Screen Reader Scan:"), "scan still completes");
 });

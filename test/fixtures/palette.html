@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Palette repro</title>
+<button id="open" aria-haspopup="dialog">Open palette</button>
+<div id="dlg" role="dialog" aria-label="Search" hidden>
+  <input id="q" role="combobox" aria-expanded="false" aria-label="Search">
+  <div id="body"></div>
+</div>
+<script>
+  const seeded = JSON.parse(sessionStorage.getItem('recent') || '[]');
+  document.getElementById('open').onclick = () => {
+    document.getElementById('dlg').hidden = false; render(seeded); };
+  document.getElementById('q').oninput = (e) =>
+    render(e.target.value ? ['Result for ' + e.target.value] : seeded);
+  function render(items) {
+    const body = document.getElementById('body');
+    if (!items.length) { body.innerHTML = ''; return; }
+    body.innerHTML = '<div id="lb" role="listbox" aria-label="Results">' +
+      items.map((t,i) => `<div role="option" aria-selected="${i===0}">${t}</div>`).join('') + '</div>';
+    document.getElementById('q').setAttribute('aria-expanded','true');
+    document.getElementById('q').setAttribute('aria-controls','lb');
+  }
+</script>
+</html>

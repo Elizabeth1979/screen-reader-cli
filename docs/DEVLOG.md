@@ -6,6 +6,99 @@ Newest entries first.
 
 ---
 
+## 2026-09-17 — Docs for the reach flags; #12 was already fixed
+
+README gains a "Reaching a component's real state" section covering `--open`,
+`--open-target`, `--open-wait`, `--type`, `--type-wait`, `--local-storage` and
+`--session-storage` in one table, for both `audit` and `scan`.
+
+Issue #12 (README leading with clone instead of the npm install) turned out to
+be **already fixed** — on 2026-07-24, two weeks before the issue was filed. The
+issue was written against the published 0.1.0 tarball, whose README still had
+the old text; the repo had moved on but not been republished. Verified by
+downloading the current published package and reading its README, not by
+reading the repo. Closed, not reimplemented.
+
+Also noted, not fixed here: `docs/index.html` no longer passes its own
+`--fail-on minor` check. An animated `.bubble` element fails colour contrast,
+and the count varies between runs because the contrast is sampled mid-animation.
+Pre-existing on `main` — confirmed by scanning `main` in a scratch worktree —
+so it is out of scope for this branch and wants its own fix.
+
+---
+
+## 2026-09-17 — One shared way to reach the state worth measuring
+
+`audit` walks a page element by element and prints what a screen reader would
+say. Point it at a modal and the whole traversal was "Open Modal button, end of
+document" — the dialog's own heading, body and close button were never reached,
+because the dialog was never opened. `scan` could click a component open before
+measuring it; `audit` could not
+([#22](https://github.com/Elizabeth1979/screen-reader-cli/issues/22)).
+
+`audit` now takes the same reach flags `scan` has: `--open`, `--open-wait`,
+`--open-target`, `--type`, `--type-wait` and `--session-storage`. Giving it only
+`--open` would have fixed modals and left anything gated on typed input still
+unreachable — the same gap one level down.
+
+They are the same code, not a copy. `openAndSettle` and `typeIntoFields` moved
+out of `scan.js` into **`src/page-state.js`**, which both commands import. What
+state a component is in is a question about the page, not about the engine
+looking at it, so a flag existing on one command and not the other is exactly
+the bug being fixed. They live there rather than in `util.js` because `util.js`
+holds small pure helpers, while these drive a live page and warn on stderr.
+
+Two things worth recording:
+
+- **The virtual screen reader tracks the live DOM.** Nodes that appear after it
+  starts are announced normally, so the overlay can be opened after `openPage`
+  rather than needing a new hook before the reader boots. Checked directly
+  against a fixture before designing around it.
+- **`--session-storage` needed seeding in the bridge too**, not just in `scan`,
+  since `audit` builds its own browser context.
+
+---
+
+## 2026-09-17 — Reaching states a click alone cannot open
+
+`--open` could click a component open, but plenty of components are still
+empty once open. A command palette renders its results only after you type
+something, or if it remembers your earlier searches. Open it with a click and
+nothing is there — so the scan reported a clean pass over an empty dialog,
+and the option rows that three accessibility tickets were actually about were
+never looked at ([#15](https://github.com/Elizabeth1979/screen-reader-cli/issues/15)).
+
+Two new ways to reach that state:
+
+- **`--type <selector>=<text>`** — types into a field after the overlay opens.
+  Keys are sent one at a time rather than the value being set in one go,
+  because most comboboxes and palettes branch on each keystroke, not on a
+  single change event. Repeatable. `--type-wait` (default 600 ms) covers
+  components that debounce before rendering.
+- **`--session-storage <key=value>`** — seeds sessionStorage before the page
+  loads, mirroring `--local-storage`. Components that gate content on
+  prior-session data (recent searches, a dismissed banner) read this store,
+  and only localStorage could be seeded before.
+
+Parsing `<selector>=<text>` needed its own splitter rather than the existing
+`key=value` one. CSS attribute selectors carry their own equals sign and are
+the common case here, so splitting on the first `=` would turn
+`[role=combobox]=hello` into the selector `[role`. Splitting on the last one
+breaks the other way, on typed text containing an equals sign. The splitter
+takes the first `=` that sits outside brackets, parentheses and quotes — the
+one place a selector cannot put one — so both forms split where a reader
+expects.
+
+**Known limit:** the test fixture renders synchronously. A real palette
+debounces and fetches, so the async path is covered by `--type-wait` by
+design but is not exercised by the suite.
+
+Not built: the issue also floated warning when an opened subtree is
+suspiciously small. It guesses at a threshold and the reach mechanisms are
+the real fix, so it was left out.
+
+---
+
 ## 2026-07-24 — From personal tool to public product
 
 One long working session took the repo from "works on my machine" to a
@@ -26,7 +119,7 @@ A full repo review found the code healthy but not shareable. Fixed:
   separate process, so the "background browser" died as soon as the
   command finished. The commands could never work; honest CLIs don't
   advertise broken features. (Internal per-command browser reuse stayed.)
-- **Deleted `scan-penny-open.mjs`** — a private one-off debug script.
+- **Deleted a private one-off debug script** that had been committed by mistake.
 - Added: LICENSE (MIT — the field claimed it, the file didn't exist),
   `files` allowlist (npm tarball is ~22 files, no tests/skills), `engines`,
   repository metadata, CI workflow (Node 20/22 + Chromium), CONTRIBUTING,
@@ -100,7 +193,7 @@ after v0.1.0 was published.
 
 ### [PR #9](https://github.com/Elizabeth1979/screen-reader-cli/pull/9) — Report redesign: grouping + element screenshots
 
-Driven by the first real-world scan (Melio's homepage): 67 table rows that
+Driven by the first real-world scan of a production site: 67 table rows that
 were really just 2 distinct problems, with no way to *see* the failing
 elements. Changes:
 

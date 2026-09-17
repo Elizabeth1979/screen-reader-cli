@@ -293,6 +293,51 @@ Headings (2):
   heading, Filters, level 2       # the duplicate
 ```
 
+### Reaching a component's real state — `--open`, `--type`, `--session-storage`
+
+A component that is closed, empty or logged-out reports clean, because there is
+nothing in it to find. Both `audit` and `scan` accept the same flags for driving
+a page into the state worth measuring first.
+
+```bash
+# Open an overlay before measuring it
+screenreader audit <url> --open "button:has-text('Open')" --open-target "[role=dialog]"
+screenreader scan  <url> --open "#menu-trigger" --open-target "[role=menu]"
+
+# Type into a field, for content that renders only once a query exists
+screenreader audit <url> --open "#search" --type "#q=invoice"
+
+# Seed browser storage an app reads on boot
+screenreader scan <url> --local-storage "token=abc123"
+screenreader scan <url> --session-storage 'recent=["invoice","vendor"]'
+```
+
+| Flag | What it does |
+| --- | --- |
+| `--open <selector>` | Clicks to reveal an overlay. Comma-separate fallbacks; first match wins. |
+| `--open-target <selector>` | Waits for this to appear before measuring — portal-mounted overlays arrive a beat after the click. |
+| `--open-wait <ms>` | Fixed fallback wait when `--open-target` is absent or times out (default 900). |
+| `--type <selector>=<text>` | Types into a field. Repeatable. Keys are sent one at a time, so components that branch on each keystroke react as they would for a person. |
+| `--type-wait <ms>` | Wait after the last keystroke, for components that debounce or fetch (default 600). |
+| `--local-storage <key=value>` | Seeds localStorage before any page script runs. Repeatable. |
+| `--session-storage <key=value>` | Same for sessionStorage — the store used for prior-session data like recent searches. Repeatable. |
+
+`=` inside a selector is safe: `--type '[role=combobox]=hello'` splits at the
+separator outside the brackets, not the one inside them.
+
+Why this matters more than it sounds. Traversing a closed modal produces:
+
+```
+$ screenreader audit <url> --summary
+button, Open Modal, has popup dialog
+end of document
+```
+
+That is a clean result for a component nobody looked at. With the overlay open,
+the traversal reaches the content the audit was actually about — and a search
+component that renders nothing until you type stays invisible until `--type`
+puts a query in it.
+
 ### `screenshot` — Capture elements or pages
 
 ```bash
