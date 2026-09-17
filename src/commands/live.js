@@ -10,6 +10,64 @@ function readerOption(cmd) {
   );
 }
 
+// VoiceOver treats a web page as a sealed container. Stepping forward walks the
+// browser's own chrome and then stops at the web-area boundary, where it
+// announces "to enter the web area, press Control-Option-Shift-Down Arrow" —
+// and says it literally, because forward movement alone will not descend. Every
+// traversal therefore read Chrome's toolbar, stalled on that boundary, and the
+// repeat-detector bailed once the same line came back three times. Zero page
+// content, in both `read` and `test` (#11).
+//
+// `interact()` sends that command. NVDA has no equivalent boundary, so this is
+// VoiceOver-only and a no-op elsewhere.
+const WEB_AREA = /\bweb (?:content|area)\b|\bhtml content\b/i;
+
+/**
+ * Walk to the web-area boundary and step inside it.
+ *
+ * Returns { entered, skipped, boundary }. `skipped` holds whatever was
+ * announced on the way — browser chrome, normally.
+ *
+ * On failure it hands those phrases back rather than swallowing them, because
+ * the two failure modes are opposite: the boundary may be absent because
+ * VoiceOver was *already* inside the page, in which case `skipped` is real page
+ * content and discarding it would be the bug this function exists to fix.
+ * The caller uses it as the start of the traversal instead.
+ */
+export async function enterWebArea(bridge, { maxProbe = 15 } = {}) {
+  if (bridge.readerName !== "voiceover") {
+    return { entered: false, skipped: [], reason: "not-voiceover" };
+  }
+  const skipped = [];
+  for (let i = 0; i < maxProbe; i++) {
+    const phrase = await bridge.next();
+    if (!phrase) break;
+    if (WEB_AREA.test(phrase)) {
+      await bridge.interact();
+      return { entered: true, skipped, boundary: phrase };
+    }
+    skipped.push(phrase);
+  }
+  return { entered: false, skipped, reason: "boundary-not-found" };
+}
+
+function reportEntry(entry, readerLabel) {
+  if (entry.reason === "not-voiceover") return;
+  if (entry.entered) {
+    if (entry.skipped.length) {
+      process.stderr.write(
+        `(skipped ${entry.skipped.length} ${readerLabel} browser-UI item(s) before entering the page)\n`,
+      );
+    }
+    return;
+  }
+  process.stderr.write(
+    `\u26a0 Never reached the web-area boundary in ${entry.skipped.length} step(s). ` +
+      `Reading from wherever the cursor started — output may include browser UI, ` +
+      `or the page may already have been entered.\n`,
+  );
+}
+
 export function liveCommand() {
   const live = new Command("live").description(
     "Drive a real screen reader (VoiceOver on Mac, NVDA on Windows)"
@@ -72,10 +130,17 @@ export function liveCommand() {
       await page.waitForTimeout(1000);
       await bridge.start();
 
-      const maxSteps = parseInt(opts.steps, 10);
-      const phrases = [];
+      const readerLabel0 =
+        bridge.readerName === "voiceover" ? "VoiceOver" : "NVDA";
+      const entry = await enterWebArea(bridge);
+      reportEntry(entry, readerLabel0);
 
-      for (let i = 0; i < maxSteps; i++) {
+      const maxSteps = parseInt(opts.steps, 10);
+      // On a failed entry the probe phrases are the start of the traversal, not
+      // browser chrome to throw away — see enterWebArea.
+      const phrases = entry.entered ? [] : [...entry.skipped];
+
+      for (let i = phrases.length; i < maxSteps; i++) {
         const phrase = await bridge.next();
         if (!phrase) break;
         phrases.push(phrase);
@@ -122,11 +187,17 @@ export function liveCommand() {
       await page.waitForTimeout(1000);
       await bridge.start();
 
-      const phrases = [];
+      const entry = await enterWebArea(bridge);
+      reportEntry(
+        entry,
+        bridge.readerName === "voiceover" ? "VoiceOver" : "NVDA",
+      );
+
+      const phrases = entry.entered ? [] : [...entry.skipped];
       const issues = [];
 
       // Traverse the page
-      for (let i = 0; i < 200; i++) {
+      for (let i = phrases.length; i < 200; i++) {
         const phrase = await bridge.next();
         if (!phrase) break;
         phrases.push(phrase);
