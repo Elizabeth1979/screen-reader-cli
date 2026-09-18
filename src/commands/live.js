@@ -4,9 +4,78 @@ import { chromium } from "playwright";
 import { createLiveBridge, detectReader } from "../live-bridge.js";
 
 function readerOption(cmd) {
-  return cmd.option(
-    "--reader <name>",
-    "Screen reader to use: voiceover or nvda (auto-detects OS by default)"
+  return cmd
+    .option(
+      "--reader <name>",
+      "Screen reader to use: voiceover or nvda (auto-detects OS by default)"
+    )
+    .option(
+      "--start-timeout <ms>",
+      "How long to wait for the screen reader to finish starting. Guidepup's " +
+        "own default is 10s, which a cold VoiceOver start regularly exceeds.",
+      "45000"
+    );
+}
+
+// VoiceOver treats a web page as a sealed container. Stepping forward walks the
+// browser's own chrome and then stops at the web-area boundary, where it
+// announces "to enter the web area, press Control-Option-Shift-Down Arrow" —
+// and says it literally, because forward movement alone will not descend. Every
+// traversal therefore read Chrome's toolbar, stalled on that boundary, and the
+// repeat-detector bailed once the same line came back three times. Zero page
+// content, in both `read` and `test` (#11).
+//
+// `interact()` sends that command. NVDA has no equivalent boundary, so this is
+// VoiceOver-only and a no-op elsewhere.
+const WEB_AREA = /\bweb (?:content|area)\b|\bhtml content\b/i;
+
+/**
+ * Walk to the web-area boundary and step inside it.
+ *
+ * Returns { entered, skipped, boundary }. `skipped` holds whatever was
+ * announced on the way — browser chrome, normally.
+ *
+ * On failure it hands those phrases back rather than swallowing them, because
+ * the two failure modes are opposite: the boundary may be absent because
+ * VoiceOver was *already* inside the page, in which case `skipped` is real page
+ * content and discarding it would be the bug this function exists to fix.
+ * The caller uses it as the start of the traversal instead.
+ */
+export async function enterWebArea(bridge, { maxProbe = 15 } = {}) {
+  if (bridge.readerName !== "voiceover") {
+    return { entered: false, skipped: [], reason: "not-voiceover" };
+  }
+  const skipped = [];
+  for (let i = 0; i < maxProbe; i++) {
+    const phrase = await bridge.next();
+    if (!phrase) break;
+    if (WEB_AREA.test(phrase)) {
+      // interact() lands the cursor ON the first element inside the web area
+      // and announces it. Calling next() from here would step PAST it, so the
+      // page's first element — typically its h1 — would be missing from every
+      // traversal. Capture what interact() announced and use it as entry one.
+      const first = await bridge.interact();
+      return { entered: true, skipped, boundary: phrase, firstPhrase: first };
+    }
+    skipped.push(phrase);
+  }
+  return { entered: false, skipped, reason: "boundary-not-found" };
+}
+
+function reportEntry(entry, readerLabel) {
+  if (entry.reason === "not-voiceover") return;
+  if (entry.entered) {
+    if (entry.skipped.length) {
+      process.stderr.write(
+        `(skipped ${entry.skipped.length} ${readerLabel} browser-UI item(s) before entering the page)\n`,
+      );
+    }
+    return;
+  }
+  process.stderr.write(
+    `\u26a0 Never reached the web-area boundary in ${entry.skipped.length} step(s). ` +
+      `Reading from wherever the cursor started — output may include browser UI, ` +
+      `or the page may already have been entered.\n`,
   );
 }
 
@@ -31,7 +100,7 @@ export function liveCommand() {
         : "file://" + path.resolve(url);
 
     await page.goto(target, { waitUntil: "domcontentloaded" });
-    await bridge.start();
+    await bridge.start({ timeout: parseInt(opts.startTimeout, 10) });
 
     const readerLabel = bridge.readerName === "voiceover" ? "VoiceOver" : "NVDA";
     console.log(`${readerLabel} started on: ${target}`);
@@ -70,12 +139,24 @@ export function liveCommand() {
     try {
       await page.goto(target, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(1000);
-      await bridge.start();
+      await bridge.start({ timeout: parseInt(opts.startTimeout, 10) });
+
+      const readerLabel0 =
+        bridge.readerName === "voiceover" ? "VoiceOver" : "NVDA";
+      const entry = await enterWebArea(bridge);
+      reportEntry(entry, readerLabel0);
 
       const maxSteps = parseInt(opts.steps, 10);
-      const phrases = [];
+      // On a failed entry the probe phrases are the start of the traversal, not
+      // browser chrome to throw away — see enterWebArea. On a successful entry
+      // the phrase interact() announced is the page's first element.
+      const phrases = entry.entered
+        ? entry.firstPhrase
+          ? [entry.firstPhrase]
+          : []
+        : [...entry.skipped];
 
-      for (let i = 0; i < maxSteps; i++) {
+      for (let i = phrases.length; i < maxSteps; i++) {
         const phrase = await bridge.next();
         if (!phrase) break;
         phrases.push(phrase);
@@ -120,13 +201,23 @@ export function liveCommand() {
     try {
       await page.goto(target, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(1000);
-      await bridge.start();
+      await bridge.start({ timeout: parseInt(opts.startTimeout, 10) });
 
-      const phrases = [];
+      const entry = await enterWebArea(bridge);
+      reportEntry(
+        entry,
+        bridge.readerName === "voiceover" ? "VoiceOver" : "NVDA",
+      );
+
+      const phrases = entry.entered
+        ? entry.firstPhrase
+          ? [entry.firstPhrase]
+          : []
+        : [...entry.skipped];
       const issues = [];
 
       // Traverse the page
-      for (let i = 0; i < 200; i++) {
+      for (let i = phrases.length; i < 200; i++) {
         const phrase = await bridge.next();
         if (!phrase) break;
         phrases.push(phrase);
