@@ -50,8 +50,12 @@ export async function enterWebArea(bridge, { maxProbe = 15 } = {}) {
     const phrase = await bridge.next();
     if (!phrase) break;
     if (WEB_AREA.test(phrase)) {
-      await bridge.interact();
-      return { entered: true, skipped, boundary: phrase };
+      // interact() lands the cursor ON the first element inside the web area
+      // and announces it. Calling next() from here would step PAST it, so the
+      // page's first element — typically its h1 — would be missing from every
+      // traversal. Capture what interact() announced and use it as entry one.
+      const first = await bridge.interact();
+      return { entered: true, skipped, boundary: phrase, firstPhrase: first };
     }
     skipped.push(phrase);
   }
@@ -144,8 +148,13 @@ export function liveCommand() {
 
       const maxSteps = parseInt(opts.steps, 10);
       // On a failed entry the probe phrases are the start of the traversal, not
-      // browser chrome to throw away — see enterWebArea.
-      const phrases = entry.entered ? [] : [...entry.skipped];
+      // browser chrome to throw away — see enterWebArea. On a successful entry
+      // the phrase interact() announced is the page's first element.
+      const phrases = entry.entered
+        ? entry.firstPhrase
+          ? [entry.firstPhrase]
+          : []
+        : [...entry.skipped];
 
       for (let i = phrases.length; i < maxSteps; i++) {
         const phrase = await bridge.next();
@@ -200,7 +209,11 @@ export function liveCommand() {
         bridge.readerName === "voiceover" ? "VoiceOver" : "NVDA",
       );
 
-      const phrases = entry.entered ? [] : [...entry.skipped];
+      const phrases = entry.entered
+        ? entry.firstPhrase
+          ? [entry.firstPhrase]
+          : []
+        : [...entry.skipped];
       const issues = [];
 
       // Traverse the page

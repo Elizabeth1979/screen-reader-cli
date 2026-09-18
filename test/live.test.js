@@ -76,7 +76,7 @@ describe("live-bridge module", () => {
 // command that descends. A fake reader lets the decision logic be tested
 // without taking the machine over with real VoiceOver.
 
-function fakeBridge(readerName, phrases) {
+function fakeBridge(readerName, phrases, interactPhrase = "entered") {
   const calls = { next: 0, interact: 0 };
   return {
     readerName,
@@ -86,7 +86,7 @@ function fakeBridge(readerName, phrases) {
     },
     async interact() {
       calls.interact++;
-      return "entered";
+      return interactPhrase;
     },
   };
 }
@@ -128,6 +128,26 @@ describe("enterWebArea", () => {
     assert.equal(r.entered, false);
     assert.equal(b.calls.interact, 0, "must not interact when no boundary was found");
     assert.deepEqual(r.skipped, pageContent, "content is returned, not lost");
+  });
+
+  it("returns the element interact() lands on, so the page's first element is not skipped", async () => {
+    // Caught only by a real VoiceOver run: interact() lands the cursor ON the
+    // first element inside the web area and announces it, so stepping with
+    // next() from there skips it. The page's h1 was missing from every
+    // traversal while every unit test passed.
+    const { enterWebArea } = await import("../src/commands/live.js");
+    const b = fakeBridge(
+      "voiceover",
+      CHROME_THEN_BOUNDARY,
+      "In Test page web content heading level 1 Test page",
+    );
+    const r = await enterWebArea(b);
+    assert.equal(r.entered, true);
+    assert.match(
+      r.firstPhrase,
+      /heading level 1/,
+      "the first element inside the web area must be captured, not stepped past",
+    );
   });
 
   it("gives up after the probe budget instead of looping forever", async () => {
