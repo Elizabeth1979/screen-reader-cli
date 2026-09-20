@@ -1,6 +1,6 @@
 {
   "name": "screen-reader-cli",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Screen reader testing CLI — scan pages for accessibility violations with axe-core + Virtual Screen Reader, drive real VoiceOver/NVDA, generate regression tests",
   "type": "module",
   "bin": {

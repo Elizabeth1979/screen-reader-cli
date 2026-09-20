@@ -53,6 +53,35 @@ npm link
 
 </details>
 
+### Testing backward navigation
+
+Some defects only appear in reverse. A focus guard that catches focus without
+direction awareness behaves perfectly going forward and misbehaves only going
+back, so a forward-only traversal reports a clean pass on a broken page.
+
+```bash
+screenreader live read <url> --direction backward   # walk to the end, then reverse
+screenreader live read <url> --direction both       # both, and compare
+```
+
+`both` prints each log and names any element one direction reached and the other
+did not — the shape of a reverse-navigation wrap. It stops short of judging
+ordering, because a screen reader legitimately phrases the same element
+differently depending on which way you arrive at it.
+
+> **macOS 27 note.** Live mode cannot start VoiceOver on macOS 27. The driver
+> launches it through a hardcoded path that no longer exists there, and the
+> newest release has the same path
+> ([guidepup#149](https://github.com/guidepup/guidepup/issues/149)). This is not
+> a permissions problem and not fixable here.
+>
+> The CLI checks for this before launching anything and exits immediately with
+> an explanation, rather than timing out and leaving VoiceOver half-started. It
+> tests for the missing launcher rather than the OS version, so live mode starts
+> working again on its own once the driver adds support — nothing to change here.
+>
+> `scan` and `audit` use a virtual screen reader and are unaffected.
+
 ### Staying up to date
 
 When a newer version is published, the CLI mentions it once a day:
