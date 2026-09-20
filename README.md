@@ -53,6 +53,32 @@ npm link
 
 </details>
 
+### Staying up to date
+
+When a newer version is published, the CLI mentions it once a day:
+
+```
+▲ Update available 0.4.0 → 0.5.0
+  Run npm install -g screen-reader-cli
+  ▁▃▅▇▅▃▁▃▅▇▅▃▁  v0.5.0 is out
+```
+
+It only speaks when a person is watching. The notice is written to stderr and
+suppressed whenever stderr is not an interactive terminal, so piped output,
+`--json` results, CI logs and anything driving the CLI programmatically are
+untouched. It is also skipped in CI, checked at most once a day, given a short
+timeout so a slow registry never delays a command, and silently abandoned if
+the network is unavailable.
+
+To turn it off entirely, set `NO_UPDATE_NOTIFIER` to any value.
+
+To check by hand at any time:
+
+```bash
+npm outdated -g screen-reader-cli   # am I behind?
+npm update -g screen-reader-cli     # get the latest
+```
+
 ### Live mode setup (optional — for real screen reader testing)
 
 To use the `live` command with a real screen reader, run the one-time setup:

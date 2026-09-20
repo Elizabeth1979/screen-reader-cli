@@ -10,6 +10,7 @@ import { scanCommand } from "../src/commands/scan.js";
 import { liveCommand } from "../src/commands/live.js";
 import { dashboardCommand } from "../src/commands/dashboard.js";
 import { startRepl } from "../src/repl.js";
+import { notifyIfOutdated } from "../src/update-notice.js";
 
 const { version } = JSON.parse(
   fs.readFileSync(new URL("../package.json", import.meta.url), "utf-8"),
@@ -45,8 +46,14 @@ program
 if (process.argv.length <= 2) {
   startRepl();
 } else {
-  program.parseAsync().catch((err) => {
-    console.error(`Error: ${err?.message || err}`);
-    process.exit(1);
-  });
+  program
+    .parseAsync()
+    // After the command's own work, never before it: a slow or unreachable
+    // registry must not delay what the user actually asked for. It stays silent
+    // unless stderr is a real terminal, so piped and --json output is untouched.
+    .then(() => notifyIfOutdated(version))
+    .catch((err) => {
+      console.error(`Error: ${err?.message || err}`);
+      process.exit(1);
+    });
 }
