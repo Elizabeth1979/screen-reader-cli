@@ -6,6 +6,49 @@ Newest entries first.
 
 ---
 
+## 2026-09-20 — The CLI now says when it is out of date
+
+Nothing told anyone to update. npm never notifies; you have to think to run
+`npm outdated -g`. So someone who installed 0.1.0 in July was still on 0.1.0
+after five releases, with no signal. That is not hypothetical — it produced
+issue #12, a README bug filed against the published 0.1.0 while the repo had
+been fixed for a fortnight. The fix existed; nothing said to pull it.
+
+The CLI now checks once a day and prints a short notice.
+
+**Hand-rolled rather than `update-notifier`.** That package pulls in 46
+transitive dependencies and 3.4 MB, measured, for behaviour covered here in
+about 40 lines. What it genuinely buys is careful edge-case handling, so those
+cases are implemented deliberately and tested one at a time — they are the real
+risk, not the message:
+
+- **Never writes to stdout.** `--json` output is parsed by other programs. The
+  notice goes to stderr, and a test asserts the JSON still parses.
+- **Never speaks unless a human is watching.** If stderr is not a TTY the output
+  is being piped or captured, and a friendly line there is noise nobody reads
+  and something might parse. Also skipped in CI, and by `NO_UPDATE_NOTIFIER`.
+- **Never delays the command.** Cached for a day, 1.5s timeout, and run *after*
+  the command's own work rather than before it. Measured: `--version` is ~175ms
+  with the notice wired in, unchanged.
+- **Never fails the command.** Offline, rate-limited, malformed — every path
+  returns silently.
+
+**The message is ordered for screen readers, which is the part worth
+recording.** A terminal has no way to skip ahead: a screen reader reads output
+straight through, so ordering is the only lever available — there is no
+`aria-hidden` and no landmark to jump past. The version change and the command
+therefore come first and the decoration last, so anyone listening has the point
+before the waveform starts.
+
+An earlier draft announced the art ("decorative graphic follows"). It was cut:
+on a web page that works because the user can skip, and in a terminal they
+cannot, so it added a line to listen to before the noise it was warning about
+and delivered a promise the medium cannot keep. Ruled out for the same reason:
+a face drawn in ASCII, which carries no information and reads as a string of
+parentheses.
+
+---
+
 ## 2026-09-18 — Live mode reads the page at last
 
 `live read` and `live test` produced no page content at all on macOS. Both only
