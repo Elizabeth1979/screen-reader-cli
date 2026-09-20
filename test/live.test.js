@@ -267,6 +267,7 @@ describe("explainStartFailure", () => {
     const msg = explainStartFailure(
       new Error("VoiceOver cannot be started\nCommand failed: .../VoiceOverStarter: No such file or directory"),
       45000,
+      { platform: "darwin", release: "27.0.0" },
     );
     assert.match(msg, /not a permissions problem/i);
     assert.match(msg, /guidepup\/issues\/149/);
@@ -277,13 +278,35 @@ describe("explainStartFailure", () => {
     const { explainStartFailure } = await import("../src/live-bridge.js");
     const err = new Error("VoiceOver cannot be started");
     err.cause = new Error("macOS version not supported");
-    assert.match(explainStartFailure(err, 45000), /not a permissions problem/i);
+    assert.match(
+      explainStartFailure(err, 45000, { platform: "darwin", release: "27.0.0" }),
+      /not a permissions problem/i,
+    );
   });
 
   it("leaves an ordinary timeout as a timeout", async () => {
     const { explainStartFailure } = await import("../src/live-bridge.js");
-    const msg = explainStartFailure(new Error("Timed out waiting for VoiceOver to be running"), 45000);
+    const msg = explainStartFailure(
+      new Error("Timed out waiting for VoiceOver to be running"),
+      45000,
+      { platform: "darwin", release: "27.0.0" },
+    );
     assert.match(msg, /--start-timeout/);
+    assert.doesNotMatch(msg, /not a permissions problem/i);
+  });
+});
+
+describe("explainStartFailure — platform", () => {
+  it("does not claim a macOS diagnosis on another platform", async () => {
+    // CI runs on Linux. Reading process.platform directly meant this branch was
+    // never exercised there, so the suite reported green over untested code —
+    // and the tests themselves failed the moment CI ran them.
+    const { explainStartFailure } = await import("../src/live-bridge.js");
+    const msg = explainStartFailure(
+      new Error("VoiceOver cannot be started\nCommand failed: .../VoiceOverStarter: No such file or directory"),
+      45000,
+      { platform: "linux", release: "6.1.0" },
+    );
     assert.doesNotMatch(msg, /not a permissions problem/i);
   });
 });

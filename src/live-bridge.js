@@ -140,13 +140,19 @@ export async function createLiveBridge(readerName) {
  * advisory, and the day guidepup adds support this code simply stops matching
  * and nothing is blocked.
  */
-export function explainStartFailure(err, timeout) {
+export function explainStartFailure(err, timeout, env = {}) {
+  // Platform and release are injected rather than read directly so the
+  // diagnosis is testable on any host. Without this the tests only exercise
+  // this branch on a Mac, and CI — which runs on Linux — silently covers
+  // nothing while still reporting green.
+  const platform = env.platform ?? process.platform;
+  const release = env.release ?? os.release();
   const raw = [err?.message, err?.cause?.message].filter(Boolean).join(" — ");
   const unsupported =
     /VoiceOverStarter|no such file|not supported|manifest|no manifest asset/i.test(
       raw,
     );
-  if (process.platform === "darwin" && unsupported) {
+  if (platform === "darwin" && unsupported) {
     // Deliberately no Darwin-to-macOS conversion: the old offset (Darwin 23 =
     // macOS 14) stopped holding when Apple moved to year-based versions, so a
     // computed number here would be confidently wrong. Print what was measured.
@@ -154,7 +160,7 @@ export function explainStartFailure(err, timeout) {
       `${raw}\n\n` +
       `This is almost certainly an unsupported macOS, not a permissions problem.\n` +
       `Guidepup ships per-version assets and hardcodes VoiceOver's launcher path;\n` +
-      `this machine reports Darwin ${os.release()}.\n` +
+      `this machine reports Darwin ${release}.\n` +
       `Confirm with:  npx @guidepup/setup install voiceover\n` +
       `Upstream issue: https://github.com/guidepup/guidepup/issues/149\n` +
       `Everything except live mode still works — scan and audit need no screen reader.`
