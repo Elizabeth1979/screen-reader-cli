@@ -1,3 +1,5 @@
+import os from "node:os";
+
 /**
  * Live screen reader bridge — drives real VoiceOver (macOS) or NVDA (Windows)
  * via @guidepup/guidepup. Same method shape as bridge.js for consistency.
@@ -52,11 +54,7 @@ export async function createLiveBridge(readerName) {
           // Leaving a half-started screen reader behind takes over the user's
           // machine with no obvious way back, so always try to put it away.
           await reader.stop().catch(() => {});
-          throw new Error(
-            `${err.message}. VoiceOver did not finish starting within ${timeout}ms. ` +
-              `Check that automation is permitted (npx @guidepup/setup setup), ` +
-              `or raise the limit with --start-timeout.`,
-          );
+          throw new Error(explainStartFailure(err, timeout));
         }
       }
     },
@@ -126,4 +124,45 @@ export async function createLiveBridge(readerName) {
       return reader.lastSpokenPhrase();
     },
   };
+}
+
+/**
+ * Turn a screen-reader start failure into something actionable.
+ *
+ * Guidepup ships per-macOS-version assets and hardcodes a launcher path, so on
+ * a macOS it does not yet support the failure surfaces as "VoiceOver cannot be
+ * started", a missing-file error, or a timeout — none of which name the cause.
+ * That sends people to Accessibility permissions, which are not involved, and
+ * the upstream issue for it (guidepup/guidepup#149) is specifically about the
+ * cause being hidden.
+ *
+ * So diagnose it here rather than pre-emptively refusing to run: the check is
+ * advisory, and the day guidepup adds support this code simply stops matching
+ * and nothing is blocked.
+ */
+export function explainStartFailure(err, timeout) {
+  const raw = [err?.message, err?.cause?.message].filter(Boolean).join(" — ");
+  const unsupported =
+    /VoiceOverStarter|no such file|not supported|manifest|no manifest asset/i.test(
+      raw,
+    );
+  if (process.platform === "darwin" && unsupported) {
+    // Deliberately no Darwin-to-macOS conversion: the old offset (Darwin 23 =
+    // macOS 14) stopped holding when Apple moved to year-based versions, so a
+    // computed number here would be confidently wrong. Print what was measured.
+    return (
+      `${raw}\n\n` +
+      `This is almost certainly an unsupported macOS, not a permissions problem.\n` +
+      `Guidepup ships per-version assets and hardcodes VoiceOver's launcher path;\n` +
+      `this machine reports Darwin ${os.release()}.\n` +
+      `Confirm with:  npx @guidepup/setup install voiceover\n` +
+      `Upstream issue: https://github.com/guidepup/guidepup/issues/149\n` +
+      `Everything except live mode still works — scan and audit need no screen reader.`
+    );
+  }
+  return (
+    `${raw}. The screen reader did not finish starting within ${timeout}ms. ` +
+    `Check that automation is permitted (npx @guidepup/setup setup), ` +
+    `or raise the limit with --start-timeout.`
+  );
 }

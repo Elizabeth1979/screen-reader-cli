@@ -257,3 +257,33 @@ describe("compareDirections", () => {
     assert.equal(r.onlyBackward.length, 0);
   });
 });
+
+describe("explainStartFailure", () => {
+  it("names an unsupported macOS rather than sending people to permissions", async () => {
+    // The upstream complaint (guidepup/guidepup#149) is that the real cause is
+    // buried, so the first hour goes to Accessibility settings that are not
+    // involved. The message has to say so outright.
+    const { explainStartFailure } = await import("../src/live-bridge.js");
+    const msg = explainStartFailure(
+      new Error("VoiceOver cannot be started\nCommand failed: .../VoiceOverStarter: No such file or directory"),
+      45000,
+    );
+    assert.match(msg, /not a permissions problem/i);
+    assert.match(msg, /guidepup\/issues\/149/);
+    assert.match(msg, /scan and audit need no screen reader/i);
+  });
+
+  it("also catches the newer manifest wording", async () => {
+    const { explainStartFailure } = await import("../src/live-bridge.js");
+    const err = new Error("VoiceOver cannot be started");
+    err.cause = new Error("macOS version not supported");
+    assert.match(explainStartFailure(err, 45000), /not a permissions problem/i);
+  });
+
+  it("leaves an ordinary timeout as a timeout", async () => {
+    const { explainStartFailure } = await import("../src/live-bridge.js");
+    const msg = explainStartFailure(new Error("Timed out waiting for VoiceOver to be running"), 45000);
+    assert.match(msg, /--start-timeout/);
+    assert.doesNotMatch(msg, /not a permissions problem/i);
+  });
+});

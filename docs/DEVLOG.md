@@ -6,6 +6,68 @@ Newest entries first.
 
 ---
 
+## 2026-09-20 — Backward traversal, and a macOS that live mode cannot run on
+
+`--direction forward|backward|both` on `live read`
+([#23](https://github.com/Elizabeth1979/screen-reader-cli/issues/23)). The bug
+class it exists for is asymmetry: a focus guard that catches focus without
+direction awareness behaves perfectly forward and misbehaves only in reverse, so
+a forward-only tool reports a clean pass on a genuinely broken page.
+
+`backward` always measures from the end, because reversing from the top is a
+no-op — "walk to the end, then back" is the only reading that tests anything.
+That makes `both` the primitive and the other two views of it.
+
+Three stop conditions on the reverse walk, and the middle one is the finding:
+announcements run out; an element is announced twice, which is a *wrap* rather
+than stopping at the boundary and is the reported defect's actual signature; or
+the walk steps back out of the web area into the browser's chrome, which is not
+the page and is dropped rather than logged as content.
+
+**The comparison deliberately stops short of a verdict on ordering.** A screen
+reader phrases the same element differently depending on which way you reach it
+— "list 2 items" entering, "end of list" leaving — so an exact mirror is the
+wrong expectation and claiming to detect mis-ordering would produce noise a
+reader learns to ignore. What is reportable is an element reached in one
+direction and not the other, which is exactly the shape of the reported bug.
+Container open/close and positional chatter are collapsed first, or every list
+and dialog on the page shows as a one-sided difference and buries the finding.
+
+## Live mode cannot run on macOS 27 — upstream, not ours
+
+Verification was blocked. Guidepup hardcodes
+`/System/Library/CoreServices/VoiceOver.app/Contents/MacOS/VoiceOverStarter`,
+which does not exist on macOS 27; the directory holds only `VoiceOver`.
+Confirmed not to be ours and not fixable here:
+
+- **Upgrading does not help.** 0.34.0, ten minor versions newer, hardcodes the
+  same path — read directly from its tarball rather than assumed.
+- **VoiceOver itself starts fine** via `tell application "VoiceOver" to
+  activate`. Only guidepup's launcher is broken. But its commands then refuse
+  with "VoiceOver not running", because its own `started` flag was never set, so
+  starting the reader separately is not a workaround.
+- **Already reported upstream**: guidepup/guidepup#149, open since 2026-09-15,
+  filed from this same Darwin 27.0.0 build 26A428.
+
+So `--direction` ships covered by unit tests against a fake bridge and **not
+verified against real VoiceOver**. Stated plainly rather than implied.
+
+What *was* shipped for it: the failure now explains itself. The upstream issue's
+own complaint is that the cause is hidden — the error reads as a permissions
+problem, so the first hour goes to Accessibility settings that are not involved.
+`explainStartFailure` recognises the unsupported-platform shapes, says outright
+that permissions are not the cause, links the upstream issue, and notes that
+`scan` and `audit` need no screen reader and still work. It diagnoses rather
+than pre-emptively refusing, so the day guidepup adds support nothing here
+blocks.
+
+One thing caught before shipping: the first draft printed "macOS 18-ish" from
+`Darwin major - 9`. That offset stopped holding when Apple moved to year-based
+versions. The conversion was removed rather than corrected — printing what was
+measured beats computing a number that is confidently wrong.
+
+---
+
 ## 2026-09-20 — The CLI now says when it is out of date
 
 Nothing told anyone to update. npm never notifies; you have to think to run
