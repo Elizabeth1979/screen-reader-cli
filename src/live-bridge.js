@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import os from "node:os";
 
 /**
@@ -140,6 +141,50 @@ export async function createLiveBridge(readerName) {
  * advisory, and the day guidepup adds support this code simply stops matching
  * and nothing is blocked.
  */
+// Guidepup launches VoiceOver through this one hardcoded path. It does not
+// exist on macOS 27, where the directory holds only `VoiceOver`.
+const VOICE_OVER_STARTER =
+  "/System/Library/CoreServices/VoiceOver.app/Contents/MacOS/VoiceOverStarter";
+
+/**
+ * Decide whether live mode can work, BEFORE launching a browser or touching the
+ * screen reader.
+ *
+ * Without this the user waits out a 45-second timeout, VoiceOver may be left
+ * half-started holding their machine, and the error reads as a permissions
+ * problem — which is how an hour goes to Accessibility settings that are not
+ * involved. A check costing one stat call turns that into an immediate, honest
+ * refusal.
+ *
+ * It tests the condition, not the OS version. A version check would go stale
+ * the moment guidepup adds support or Apple moves the path again, and would
+ * then block a machine that works. Checking for the launcher itself means this
+ * resolves on its own.
+ */
+export function preflightLiveMode({
+  platform = process.platform,
+  release = os.release(),
+  exists = (p) => fs.existsSync(p),
+} = {}) {
+  if (platform !== "darwin") return { ok: true };
+  if (exists(VOICE_OVER_STARTER)) return { ok: true };
+  return {
+    ok: false,
+    reason:
+      `Live mode cannot start VoiceOver on this machine (Darwin ${release}).\n\n` +
+      `This is not a permissions problem. The screen-reader driver launches\n` +
+      `VoiceOver through a path that does not exist here:\n` +
+      `  ${VOICE_OVER_STARTER}\n\n` +
+      `It is an upstream gap, already reported, and not fixable from this tool:\n` +
+      `  https://github.com/guidepup/guidepup/issues/149\n\n` +
+      `What still works — neither needs a real screen reader:\n` +
+      `  screenreader scan <url>    accessibility checks + page structure\n` +
+      `  screenreader audit <url>   full traversal with the virtual screen reader\n\n` +
+      `Live mode will start working again on its own once the driver supports\n` +
+      `this macOS; nothing here needs changing.`,
+  };
+}
+
 export function explainStartFailure(err, timeout, env = {}) {
   // Platform and release are injected rather than read directly so the
   // diagnosis is testable on any host. Without this the tests only exercise

@@ -1,7 +1,11 @@
 import path from "node:path";
 import { Command } from "commander";
 import { chromium } from "playwright";
-import { createLiveBridge, detectReader } from "../live-bridge.js";
+import {
+  createLiveBridge,
+  detectReader,
+  preflightLiveMode,
+} from "../live-bridge.js";
 
 function readerOption(cmd) {
   return cmd
@@ -192,6 +196,16 @@ export function liveCommand() {
       .argument("<url>", "URL to open")
       .description("Open a URL and start the screen reader")
   ).action(async (url, opts) => {
+    // Before a browser is launched or the screen reader is touched: if live
+    // mode cannot work on this machine, say so now rather than after a timeout
+    // with VoiceOver left half-started.
+    const preflight = preflightLiveMode();
+    if (!preflight.ok) {
+      console.error(`\n${preflight.reason}\n`);
+      process.exitCode = 1;
+      return;
+    }
+
     const bridge = await createLiveBridge(opts.reader);
     const browser = await chromium.launch({ headless: false });
     const page = await browser.newPage();
@@ -239,6 +253,16 @@ export function liveCommand() {
       .option("--json", "Output as JSON")
       .description("Read the full page with a real screen reader and log what is announced")
   ).action(async (url, opts) => {
+    // Before a browser is launched or the screen reader is touched: if live
+    // mode cannot work on this machine, say so now rather than after a timeout
+    // with VoiceOver left half-started.
+    const preflight = preflightLiveMode();
+    if (!preflight.ok) {
+      console.error(`\n${preflight.reason}\n`);
+      process.exitCode = 1;
+      return;
+    }
+
     const bridge = await createLiveBridge(opts.reader);
     const browser = await chromium.launch({ headless: false });
     const page = await browser.newPage();
@@ -364,6 +388,16 @@ export function liveCommand() {
       .option("--json", "Output as JSON")
       .description("Run screen reader through the page and check for common issues")
   ).action(async (url, opts) => {
+    // Before a browser is launched or the screen reader is touched: if live
+    // mode cannot work on this machine, say so now rather than after a timeout
+    // with VoiceOver left half-started.
+    const preflight = preflightLiveMode();
+    if (!preflight.ok) {
+      console.error(`\n${preflight.reason}\n`);
+      process.exitCode = 1;
+      return;
+    }
+
     const bridge = await createLiveBridge(opts.reader);
     const browser = await chromium.launch({ headless: false });
     const page = await browser.newPage();

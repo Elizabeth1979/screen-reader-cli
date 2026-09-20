@@ -52,7 +52,19 @@ Confirmed not to be ours and not fixable here:
 So `--direction` ships covered by unit tests against a fake bridge and **not
 verified against real VoiceOver**. Stated plainly rather than implied.
 
-What *was* shipped for it: the failure now explains itself. The upstream issue's
+**It now refuses before it takes the machine, not after.** A failure message
+arriving at the end of a 45-second timeout, with VoiceOver left half-started, is
+still a bad experience even when the message is good. `preflightLiveMode` runs
+before a browser is launched or the reader is touched: one `existsSync` call,
+then an immediate exit 1 with what is wrong, what still works, and why it is not
+the user's permissions. Wired into all three live subcommands. `scan` and
+`audit` are untouched and still exit 0.
+
+It tests for **the missing launcher, not the OS version** — a version check goes
+stale the moment support lands or Apple moves the path again, and would then
+block a machine that works.
+
+Also shipped: the failure explains itself. The upstream issue's
 own complaint is that the cause is hidden — the error reads as a permissions
 problem, so the first hour goes to Accessibility settings that are not involved.
 `explainStartFailure` recognises the unsupported-platform shapes, says outright

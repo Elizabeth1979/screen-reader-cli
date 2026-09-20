@@ -310,3 +310,40 @@ describe("explainStartFailure — platform", () => {
     assert.doesNotMatch(msg, /not a permissions problem/i);
   });
 });
+
+describe("preflightLiveMode — check before taking over the machine", () => {
+  it("passes when the launcher VoiceOver needs is present", async () => {
+    const { preflightLiveMode } = await import("../src/live-bridge.js");
+    const r = preflightLiveMode({
+      platform: "darwin",
+      release: "24.0.0",
+      exists: () => true,
+    });
+    assert.equal(r.ok, true);
+  });
+
+  it("fails fast when the launcher is missing, before anything starts", async () => {
+    // The condition is checked, not the OS version: when the platform or the
+    // library changes, this resolves itself instead of blocking on a hardcoded
+    // version that has gone stale.
+    const { preflightLiveMode } = await import("../src/live-bridge.js");
+    const r = preflightLiveMode({
+      platform: "darwin",
+      release: "27.0.0",
+      exists: () => false,
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason, /not a permissions problem/i);
+    assert.match(r.reason, /issues\/149/);
+    assert.match(r.reason, /scan|audit/i, "must say what still works");
+  });
+
+  it("does not block on platforms this check does not cover", async () => {
+    const { preflightLiveMode } = await import("../src/live-bridge.js");
+    assert.equal(
+      preflightLiveMode({ platform: "win32", release: "10", exists: () => false }).ok,
+      true,
+      "NVDA on Windows has nothing to do with a macOS launcher path",
+    );
+  });
+});
