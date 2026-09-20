@@ -6,6 +6,48 @@ Newest entries first.
 
 ---
 
+## 2026-09-18 — Live mode reads the page at last
+
+`live read` and `live test` produced no page content at all on macOS. Both only
+stepped forward, and forward movement does not descend into a web area:
+VoiceOver walks the browser's own chrome, stops at the boundary, and announces
+"to enter the web area, press Control-Option-Shift-Down Arrow" — literally
+saying the thing the tool was failing to send. The repeat-detector then bailed
+once that line came back three times, so the command exited looking finished.
+`interact()` had been on the bridge the whole time and was never called
+([#11](https://github.com/Elizabeth1979/screen-reader-cli/issues/11)).
+
+Both subcommands now walk to the boundary, send it, and traverse from inside.
+Browser-chrome announcements are dropped with a count on stderr rather than
+silently, because they are an artefact of driving the browser, not a finding
+about the page. Gated to VoiceOver; NVDA has no such boundary.
+
+**Two further defects that only a real run could have found**, which is the
+argument for doing the run rather than trusting a green suite:
+
+- **VoiceOver never started.** Guidepup waits 10s for it to report itself
+  running, then fails. Measured here, the three start conditions all passed at
+  about 6s — after guidepup had already given up, and with VoiceOver left
+  running, holding the machine. `start()` now waits 45s, always stops the reader
+  if it throws, and says what to try next. `--start-timeout` exposes the limit.
+- **The page's first element was silently missing.** `interact()` lands the
+  cursor *on* the first element inside the web area and announces it, so
+  stepping with `next()` from there skips it. Every traversal lost the page's
+  `h1` while all eleven unit tests passed — the fake reader could not know where
+  a real cursor lands. Now captured as entry one, and pinned by a test.
+
+Verified against the issue's own repro: previously 7 announcements, none of them
+page content, ending in a false `[possible-loop]`. Now 5 announcements —
+heading, list, both items, end of list — and `live test` reports no issues
+instead of a phantom loop.
+
+One environment note for anyone reproducing this: the machine must allow the
+controlling process to send keystrokes, since every VoiceOver command is one.
+Without it VoiceOver starts and then every command fails with "osascript is not
+allowed to send keystrokes (1002)".
+
+---
+
 ## 2026-09-17 — The docs page stopped passing its own test
 
 `node bin/cli.js scan docs/index.html --fail-on minor` was exiting 1 on three
