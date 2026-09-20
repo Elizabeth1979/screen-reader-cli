@@ -159,3 +159,101 @@ describe("enterWebArea", () => {
     assert.equal(b.calls.next, 5, "stops at the budget");
   });
 });
+
+// --- #23: backward traversal ------------------------------------------------
+// The bug class this exists for is asymmetry: a focus guard that catches focus
+// without direction awareness looks perfect going forward and misbehaves only
+// in reverse. The issue describes it as a *wrap* — swiping back out of a dialog
+// jumps to the first menu item instead of stopping at the boundary — and a wrap
+// is structurally detectable, unlike a phrasing difference.
+
+function directionalBridge(forward, backward) {
+  let fi = 0;
+  let bi = 0;
+  return {
+    readerName: "voiceover",
+    async next() {
+      return forward[fi++] ?? null;
+    },
+    async previous() {
+      return backward[bi++] ?? null;
+    },
+    async interact() {
+      return forward[fi++] ?? null;
+    },
+  };
+}
+
+describe("walkBackward", () => {
+  it("stops when it runs out of announcements", async () => {
+    const { walkBackward } = await import("../src/commands/live.js");
+    const b = directionalBridge([], ["c", "b", "a"]);
+    const r = await walkBackward(b, { maxSteps: 50 });
+    assert.deepEqual(r.phrases, ["c", "b", "a"]);
+    assert.equal(r.wrapped, false);
+  });
+
+  it("flags a wrap when an element is revisited", async () => {
+    // The real defect: reverse navigation loops instead of stopping at the
+    // boundary, so the same element comes round again.
+    const { walkBackward } = await import("../src/commands/live.js");
+    const b = directionalBridge([], ["c", "b", "a", "c", "b", "a"]);
+    const r = await walkBackward(b, { maxSteps: 50 });
+    assert.equal(r.wrapped, true, "revisiting an element is a wrap");
+    assert.match(r.reason, /repeat/i);
+  });
+
+  it("stops when it steps back out of the web area", async () => {
+    // Going backward past the top can leave the page and re-enter the browser's
+    // own chrome. Those announcements are not the page and must not be logged.
+    const { walkBackward } = await import("../src/commands/live.js");
+    const b = directionalBridge(
+      [],
+      ["c", "b", "a", "Test page web content. You are currently on a web content"],
+    );
+    const r = await walkBackward(b, { maxSteps: 50 });
+    assert.deepEqual(r.phrases, ["c", "b", "a"], "browser chrome is not part of the page log");
+    assert.match(r.reason, /web area|boundary/i);
+  });
+
+  it("respects the step budget", async () => {
+    const { walkBackward } = await import("../src/commands/live.js");
+    const endless = Array.from({ length: 200 }, (_, i) => `item ${i}`);
+    const b = directionalBridge([], endless);
+    const r = await walkBackward(b, { maxSteps: 7 });
+    assert.equal(r.phrases.length, 7);
+  });
+});
+
+describe("compareDirections", () => {
+  it("reports a clean mirror when the same elements appear both ways", async () => {
+    const { compareDirections } = await import("../src/commands/live.js");
+    const r = compareDirections(
+      ["heading, Title", "list 2 items", "First item", "Second item"],
+      ["Second item", "First item", "end of list", "heading, Title"],
+    );
+    assert.equal(r.onlyBackward.length, 0, "nothing appears only in reverse");
+  });
+
+  it("names an element reached only in reverse — the reported bug's signature", async () => {
+    const { compareDirections } = await import("../src/commands/live.js");
+    const r = compareDirections(
+      ["Close button", "Dialog heading"],
+      ["Dialog heading", "Close button", "First menu item"],
+    );
+    assert.deepEqual(r.onlyBackward, ["First menu item"]);
+  });
+
+  it("ignores VoiceOver's coaching text, which differs by direction", async () => {
+    // "You are currently on…" and "To move between items…" are added by the
+    // reader, not the page, and they differ going each way. Comparing raw
+    // phrases would report a mismatch on every single element.
+    const { compareDirections } = await import("../src/commands/live.js");
+    const r = compareDirections(
+      ["list 2 items. You are currently on a list, inside of web content."],
+      ["list 2 items. To move between items in this list, press Control-Option-Right Arrow."],
+    );
+    assert.equal(r.onlyForward.length, 0);
+    assert.equal(r.onlyBackward.length, 0);
+  });
+});
