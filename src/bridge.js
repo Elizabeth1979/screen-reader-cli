@@ -1,5 +1,9 @@
 import fs from "node:fs";
-import { resolveBundledAsset, resolveDeviceOptions } from "./util.js";
+import {
+  resolveBundledAsset,
+  resolveDeviceOptions,
+  resolveTarget,
+} from "./util.js";
 
 // Read the VSR browser bundle once at module load time
 const VSR_BUNDLE_PATH = resolveBundledAsset(
@@ -14,6 +18,7 @@ export async function createBridge(browser, opts = {}) {
   const context = await browser.newContext({
     bypassCSP: true,
     ...resolveDeviceOptions(opts),
+    ...(opts.recordVideo ? { recordVideo: opts.recordVideo } : {}),
   });
   // Seed localStorage before any page script runs, so authenticated SPAs
   // (e.g. apps that read an access token from localStorage on boot) render
@@ -73,7 +78,7 @@ export async function createBridge(browser, opts = {}) {
       } else {
         page = await context.newPage();
       }
-      await page.goto(url, { waitUntil: "domcontentloaded" });
+      await page.goto(resolveTarget(url), { waitUntil: "domcontentloaded" });
       await injectVSR();
       await ensureStarted();
     },

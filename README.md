@@ -298,10 +298,11 @@ screenreader speak find "Sign up" --url https://example.com
 ### `audit` — Full page traversal
 
 ```bash
-screenreader audit <url>                  # Traverse entire page
+screenreader audit <url>                  # Traverse entire page (URL or local file path)
 screenreader audit <url> --summary        # Include heading/landmark summary
 screenreader audit <url> --json           # JSON output
 screenreader audit <url> --max 1000       # Increase element limit (default: 500)
+screenreader audit <url> --max 60 --record run.webm   # Video: box on each element + what is said
 ```
 
 ### Auditing mobile — `--device` and `--user-agent`

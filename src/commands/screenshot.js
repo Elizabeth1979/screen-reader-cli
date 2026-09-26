@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { toInt } from "../util.js";
 import { startDaemon, connectBrowser, stopDaemon } from "../daemon.js";
 import { createBridge } from "../bridge.js";
 import path from "node:path";
@@ -9,7 +10,7 @@ export function screenshotCommand() {
     .option("--url <url>", "Open this URL first")
     .option("--full", "Take a full page screenshot instead of current element")
     .option("--output <path>", "Output file path", "screenshot.png")
-    .option("--navigate <n>", "Navigate N steps forward before screenshotting", parseInt, 0)
+    .option("--navigate <n>", "Navigate N steps forward before screenshotting", toInt, 0)
     .option("--json", "Output as JSON")
     .action(async (opts) => {
       await startDaemon();

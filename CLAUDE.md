@@ -128,3 +128,9 @@ Elizabeth (owner) prefers plain-language, example-first explanations over
 code dumps and long technical summaries — short cards, before/after
 examples, one idea at a time. When summarizing work, explain what a change
 means for users, not just what the diff does.
+
+Show the tool working, don't only report its result. A screenshot for how a
+page looks; a video for anything that happens over time (keyboard tab stops,
+the screen reader reading the page, clicks and state changes) — use
+`audit --record <file>` for screen-reader runs. Send them as you go, and say
+which page or file you are on and what you are doing.

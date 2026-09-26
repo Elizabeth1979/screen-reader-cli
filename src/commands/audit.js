@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { Command } from "commander";
 import { startDaemon, connectBrowser, stopDaemon } from "../daemon.js";
 import { createBridge } from "../bridge.js";
@@ -6,8 +9,15 @@ import {
   collectSelectorValue,
   DEVICE_NAMES,
   resolveDeviceOptions,
+  toInt,
 } from "../util.js";
 import { openAndSettle, typeIntoFields } from "../page-state.js";
+import { attachOverlay, recordVideoOptions, showStep } from "../recorder.js";
+
+// The screen reader announces the role first ("link, Home"), so match it there.
+// Matching anywhere counted the text "Knowledge link" as a link and
+// <code>main</code> as a main landmark.
+const LANDMARK = /^(navigation|banner|contentinfo|main|complementary|region)\b/;
 
 export function auditCommand() {
   const audit = new Command("audit")
@@ -15,7 +25,7 @@ export function auditCommand() {
     .argument("<url>", "URL or local file to audit")
     .option("--summary", "Include heading structure and landmark summary")
     .option("--json", "Output as JSON")
-    .option("--max <n>", "Maximum elements to traverse", parseInt, 500)
+    .option("--max <n>", "Maximum elements to traverse", toInt, 500)
     .option(
       "--local-storage <key=value>",
       "Seed localStorage before the page loads (e.g. an auth token an SPA " +
@@ -77,9 +87,18 @@ export function auditCommand() {
       "Exact user agent string to send. Overrides --device's user agent, " +
         "keeping its viewport.",
     )
+    .option(
+      "--record <file>",
+      "Record a video (.webm) of the traversal: a box around each element " +
+        "as it is reached and a caption with what the screen reader says. " +
+        "Watch the screen reader work instead of reading its transcript.",
+    )
     .action(async (url, opts) => {
       // Fail before launching a browser if --device is misspelled.
       const deviceOpts = resolveDeviceOptions(opts);
+      const videoDir = opts.record
+        ? fs.mkdtempSync(path.join(os.tmpdir(), "sr-record-"))
+        : null;
       await startDaemon();
       const browser = await connectBrowser();
       const bridge = await createBridge(browser, {
@@ -87,6 +106,9 @@ export function auditCommand() {
         sessionStorage: opts.sessionStorage,
         device: opts.device,
         userAgent: opts.userAgent,
+        ...(videoDir
+          ? { recordVideo: recordVideoOptions(videoDir, deviceOpts.viewport) }
+          : {}),
       });
 
       try {
@@ -101,6 +123,7 @@ export function auditCommand() {
         if (opts.type.length) {
           await typeIntoFields(bridge.getPage(), opts);
         }
+        if (videoDir) await attachOverlay(bridge.getPage());
 
         const phrases = [];
         const headings = [];
@@ -111,30 +134,20 @@ export function auditCommand() {
         for (let i = 0; i < max; i++) {
           const phrase = await bridge.next();
           phrases.push(phrase);
+          if (videoDir) await showStep(bridge.getPage(), i + 1, phrase);
 
           if (opts.summary) {
             const lower = phrase.toLowerCase();
+            if (lower.startsWith("heading,")) headings.push(phrase);
+            // Text that is exactly "main" is announced exactly like the
+            // landmark, so confirm the screen reader is on an element.
             if (
-              lower.includes("heading,") ||
-              lower.match(/heading.*level \d/)
+              LANDMARK.test(lower) &&
+              (await bridge.activeNodeInfo()).tagName !== "#text"
             ) {
-              headings.push(phrase);
+              landmarks.push(phrase);
             }
-            if (
-              lower.includes("navigation") ||
-              lower.includes("banner") ||
-              lower.includes("contentinfo") ||
-              lower.includes("main") ||
-              lower.includes("complementary") ||
-              lower.includes("region")
-            ) {
-              if (!lower.startsWith("end of")) {
-                landmarks.push(phrase);
-              }
-            }
-            if (lower.includes("link")) {
-              links.push(phrase);
-            }
+            if (lower.startsWith("link,")) links.push(phrase);
           }
 
           if (phrase === "end of document") break;
@@ -174,9 +187,16 @@ export function auditCommand() {
           }
         }
       } finally {
+        const video = videoDir ? bridge.getPage()?.video() : null;
         await bridge.close();
+        // The video is only complete once its context is closed.
+        if (video) {
+          await video.saveAs(path.resolve(opts.record));
+          console.error(`Recording saved: ${path.resolve(opts.record)}`);
+        }
         await browser.close();
         await stopDaemon();
+        if (videoDir) fs.rmSync(videoDir, { recursive: true, force: true });
       }
     });
 
