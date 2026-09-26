@@ -28,6 +28,11 @@ export function resolveBundledAsset(specifier) {
 
 // Turn a CLI-provided target (URL or local file path) into something
 // page.goto accepts.
+// Option parser for whole numbers. Never pass bare `parseInt`: commander calls
+// it with (value, default), so `--max 3` became parseInt("3", 500) = NaN and
+// the option was silently ignored.
+export const toInt = (value) => parseInt(value, 10);
+
 export function resolveTarget(url) {
   return url.startsWith("http") || url.startsWith("file://")
     ? url

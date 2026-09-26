@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { toInt } from "../util.js";
 import { startDaemon, connectBrowser, stopDaemon } from "../daemon.js";
 import { createBridge } from "../bridge.js";
 
@@ -62,7 +63,7 @@ export function speakCommand() {
     .command("find <text>")
     .description("Navigate forward until spoken phrase contains text")
     .option("--url <url>", "Open this URL first")
-    .option("--max <n>", "Maximum steps to search", parseInt, 100)
+    .option("--max <n>", "Maximum steps to search", toInt, 100)
     .option("--json", "Output as JSON")
     .action(async (text, opts) => {
       const result = await withBridge(opts.url, async (bridge) => {

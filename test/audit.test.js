@@ -1,6 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -114,5 +116,49 @@ describe("audit — reaching an overlay's open state", () => {
       log.includes("option") && log.includes("vendor"),
       `expected seeded option rows announced, got: ${log}`,
     );
+  });
+});
+
+// --- summary matched role words anywhere in a phrase -------------------------
+// "Merge into main" produced a second main landmark and "share the link" a
+// link, because the summary searched the whole phrase instead of its role.
+
+const WORDS_FIXTURE = `file://${path.resolve(__dirname, "fixtures/landmark-words.html")}`;
+
+describe("audit — summary counts roles, not words in text", () => {
+  it("does not count the words 'main' or 'link' in text", () => {
+    const data = JSON.parse(run("audit", WORDS_FIXTURE, "--summary", "--json"));
+    assert.deepEqual(data.landmarks, ["main"]);
+    assert.equal(data.summary.linkCount, 1, data.links.join(" | "));
+    assert.equal(data.summary.headingCount, 1);
+  });
+});
+
+// --- audit took only URLs; scan already took a plain file path ---------------
+
+describe("audit — plain file path", () => {
+  it("accepts a relative path like scan does", () => {
+    const relative = path.relative(process.cwd(), path.resolve(__dirname, "fixtures/basic.html"));
+    const data = JSON.parse(run("audit", relative, "--json", "--max", "5"));
+    assert.equal(data.total, 5);
+  });
+});
+
+// --- --record: watch the screen reader instead of reading its transcript ----
+
+describe("audit --record", () => {
+  it("writes a video and announces exactly what an unrecorded run does", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sr-record-test-"));
+    const video = path.join(dir, "run.webm");
+    try {
+      const plain = JSON.parse(run("audit", FIXTURE, "--json", "--max", "8"));
+      const recorded = JSON.parse(
+        run("audit", FIXTURE, "--json", "--max", "8", "--record", video),
+      );
+      assert.deepEqual(recorded.phrases, plain.phrases, "overlay must not be announced");
+      assert.ok(fs.statSync(video).size > 10_000, "video should have frames");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
