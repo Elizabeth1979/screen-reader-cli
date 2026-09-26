@@ -6,6 +6,31 @@ Newest entries first.
 
 ---
 
+## 2026-09-26 — Watch the screen reader work: `audit --record`
+
+A transcript says what was announced; it does not show *where* the screen
+reader was when it said it. `--record <file>` saves a video of the traversal: a
+yellow box on each element as it is reached and a caption bar with the exact
+phrase, at 0.8 s a step. The overlay sits on `<html>`, outside the `<body>` the
+virtual screen reader walks, and is `aria-hidden`, so a recorded run announces
+exactly what an unrecorded one does — a test holds it to that.
+
+Building it surfaced three bugs in `audit`:
+
+- **`--max` was silently ignored.** Commander calls an option parser as
+  `(value, default)`, so bare `parseInt` became `parseInt("3", 500)` — base 500,
+  `NaN`, fall back to 500. `speak --max` had the same bug. One shared `toInt` in
+  `util.js` now; never pass bare `parseInt` to commander.
+- **A plain file path failed** ("invalid URL") though `scan` accepted one. The
+  bridge now uses the shared `resolveTarget`, so every virtual command does.
+- **The summary counted words, not roles.** "share the link" was a link and
+  `<code>main</code>` a second main landmark, because it searched the whole
+  phrase. It now matches the role at the start of the phrase, and for
+  landmarks also confirms the screen reader is on an element — text that is
+  exactly "main" is announced identically to the landmark.
+
+---
+
 ## 2026-09-20 — Backward traversal, and a macOS that live mode cannot run on
 
 `--direction forward|backward|both` on `live read`
