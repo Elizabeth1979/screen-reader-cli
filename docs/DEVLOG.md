@@ -6,6 +6,27 @@ Newest entries first.
 
 ---
 
+## 2026-09-26 — Publish without a token: npm trusted publishing
+
+The `NPM_TOKEN` secret was the only credential in the release path, and npm
+now caps a token that can publish at 90 days. A token made in July runs out
+around late October, and the first release after that would have failed with
+"unauthorized" and no warning.
+
+`publish.yml` now uses npm trusted publishing (OIDC). npm trusts this one
+workflow file in this one repo, GitHub proves on each run that the request
+comes from it, and nothing is stored, so nothing expires or can leak. Changes:
+Node 24 (it ships npm 11.5.1+, which trusted publishing needs),
+`actions/setup-node@v6`, no `NODE_AUTH_TOKEN`, and no `registry-url` on the
+version check, which only reads the public registry. CI now also tests Node 24,
+so a PR runs on the same Node the release does.
+
+One-time step on npmjs.com: package Settings → Trusted publisher → GitHub
+Actions, `Elizabeth1979` / `screen-reader-cli` / `publish.yml`. After the first
+release publishes this way, the `NPM_TOKEN` secret is deleted.
+
+---
+
 ## 2026-09-26 — Watch the screen reader work: `audit --record`
 
 A transcript says what was announced; it does not show *where* the screen
