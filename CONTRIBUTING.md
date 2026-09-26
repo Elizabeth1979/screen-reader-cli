@@ -53,10 +53,11 @@ the one-time `npx @guidepup/setup`.
 
 ## Releasing (maintainers)
 
-Publishing to npm is automated. One-time setup: create a granular npm
-access token (npmjs.com → Access Tokens → Generate New Token → choose
-"Automation") and add it as the `NPM_TOKEN` repository secret
-(Settings → Secrets and variables → Actions).
+Publishing to npm is automated and uses npm trusted publishing, so no token
+is stored anywhere. One-time setup: on
+npmjs.com → screen-reader-cli → Settings → Trusted publisher, add GitHub
+Actions with owner `Elizabeth1979`, repository `screen-reader-cli` and
+workflow `publish.yml`.
 
 **To release: bump `version` in package.json and merge to `main`. That is the
 whole procedure.** Bump it in the same PR as the change when you can — then

@@ -57,9 +57,10 @@ stay personal whoever pushes.
 ## Releasing
 
 Version bump in package.json → merge → Actions → "Publish to npm" → Run
-workflow (or publish a GitHub Release). Needs `NPM_TOKEN` repo secret
-(granular npm token, read/write all packages, "Bypass 2FA" checked).
-Workflow runs the full suite before publishing.
+workflow (or publish a GitHub Release). Authenticates with npm trusted
+publishing (OIDC), so there is no token to store or renew; the trusted
+publisher is set on npmjs.com (package Settings → Trusted publisher →
+`publish.yml`). Workflow runs the full suite before publishing.
 
 ## Site
 

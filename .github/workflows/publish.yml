@@ -4,8 +4,11 @@ name: Publish to npm
 # so a merged release bump ships without a second manual step. The manual
 # triggers are kept for re-runs and for publishing an older commit.
 #
-# Requires an NPM_TOKEN repository secret
-# (Settings → Secrets and variables → Actions → New repository secret).
+# Authenticates with npm trusted publishing (OIDC): npm trusts this workflow
+# file in this repo, so no token is stored anywhere. One-time setup is on
+# npmjs.com → screen-reader-cli → Settings → Trusted publisher → GitHub
+# Actions (owner Elizabeth1979, repository screen-reader-cli, workflow
+# publish.yml). Needs npm 11.5.1 or later, which Node 24 ships.
 on:
   push:
     branches: [main]
@@ -15,7 +18,7 @@ on:
 
 permissions:
   contents: write # push the version tag
-  id-token: write # npm provenance
+  id-token: write # npm trusted publishing and provenance
 
 jobs:
   # Decide whether there is anything to publish BEFORE installing a browser
@@ -27,10 +30,9 @@ jobs:
       publish: ${{ steps.check.outputs.publish }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
-          registry-url: https://registry.npmjs.org
+          node-version: 24
 
       - id: check
         run: |
@@ -65,10 +67,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           registry-url: https://registry.npmjs.org
+          package-manager-cache: false # never use caching in release builds
 
       - run: npm ci
 
@@ -80,8 +83,6 @@ jobs:
           SR_NO_OPEN: "1"
 
       - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # Tag only after a successful publish, so a tag always means "this went
       # out". Skipped if the tag exists, which is the case on a manual re-run.
