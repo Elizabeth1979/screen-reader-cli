@@ -35,6 +35,22 @@ describe("audit command", () => {
   });
 });
 
+// --- A header inside an article is not the page banner ---------------------
+// HTML-AAM maps <header> to banner only when it is not inside article, aside,
+// main, nav or section. @guidepup/virtual-screen-reader before 0.33 announced
+// every <header> as a banner, so each card read as a page-level landmark.
+
+const SCOPED_HEADER_FIXTURE = `file://${path.resolve(__dirname, "fixtures/scoped-header.html")}`;
+
+describe("audit — header landmarks", () => {
+  it("announces only the page header as a banner", () => {
+    const { phrases } = JSON.parse(run("audit", SCOPED_HEADER_FIXTURE, "--json"));
+    const log = phrases.join(" | ");
+    assert.equal(phrases.filter((phrase) => phrase === "banner").length, 1, log);
+    assert.ok(phrases.includes("heading, Card title, level 2"), log);
+  });
+});
+
 // --- #13: audit could not reach an overlay's open state ---------------------
 // scan could click a component open before measuring it; audit could not, so a
 // traversal of a modal saw the trigger button and "end of document" and never
