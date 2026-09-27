@@ -6,6 +6,22 @@ Newest entries first.
 
 ---
 
+## 2026-09-27 — 0.7.0
+
+Released so the accessibility evidence engine can install `audit --record` from
+npm, the same package any user gets, instead of a copy of this repo. It makes
+its product videos with it.
+
+What is new since 0.6.0:
+
+- `audit --record <file>` saves a video of the traversal (2026-09-26 entry).
+- A header inside a card is no longer announced as "banner", with the reader
+  upgrade that brings (entry below).
+- Live mode checks it can run before it takes over the machine.
+- Publishing uses npm trusted publishing, so there is no token to renew.
+
+---
+
 ## 2026-09-27 — A header inside a card is no longer "banner"
 
 `audit` announced every `<header>` as a banner, the landmark for the page's own
