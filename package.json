@@ -44,7 +44,7 @@
   "homepage": "https://github.com/Elizabeth1979/screen-reader-cli#readme",
   "dependencies": {
     "@guidepup/guidepup": "^0.24.1",
-    "@guidepup/virtual-screen-reader": "^0.25.0",
+    "@guidepup/virtual-screen-reader": "^0.33.0",
     "axe-core": "^4.11.2",
     "commander": "^13.0.0",
     "playwright": "^1.52.0"

@@ -6,6 +6,36 @@ Newest entries first.
 
 ---
 
+## 2026-09-27 — A header inside a card is no longer "banner"
+
+`audit` announced every `<header>` as a banner, the landmark for the page's own
+header. A header inside an article, a card or a section is not one: HTML-AAM
+gives `<header>` the banner role only when it is not inside `article`, `aside`,
+`main`, `nav` or `section`, and Chrome's accessibility tree agrees. On a page of
+cards, a listener heard a "banner" for every card.
+
+The cause was the version range. `^0.25.0` on a 0.x package never moves past
+0.25, and `@guidepup/virtual-screen-reader` fixed this by 0.33. The range is now
+`^0.33.0`, and `test/fixtures/scoped-header.html` keeps it fixed: only the page
+header is a banner.
+
+The upgrade changes other output too:
+
+- Images are announced as "image" instead of "img", the ARIA 1.3 name.
+- Inline markup inside a heading or a link is read piece by piece after the
+  heading itself: "What does your page *sound* like?" continues with "What does
+  your page", "emphasis", "sound", "end of emphasis", "like?". `<code>` gets
+  "code" the same way.
+- Figure captions are announced as "caption", and an SVG inside a link as
+  "graphics-document".
+
+The first and third match the accessibility tree. The second is more detail
+than NVDA reads by default; it is closer to VoiceOver stepping item by item.
+Of the test fixtures, only `violations.html` reads differently: its icon link
+now announces its SVG.
+
+---
+
 ## 2026-09-26 — Publish without a token: npm trusted publishing
 
 The `NPM_TOKEN` secret was the only credential in the release path, and npm
