@@ -6,6 +6,16 @@ Newest entries first.
 
 ---
 
+## 2026-10-04 — 0.10.0
+
+Ships one feature: `scan --baseline <file>` so CI fails only on new issues.
+Accept today's findings once with `--update-baseline`, commit the file, and
+`--fail-on` counts only findings not in it. Entry below.
+
+Nothing changes for anyone not passing `--baseline`.
+
+---
+
 ## 2026-10-04 — `--baseline`: CI fails only on new issues
 
 `--fail-on` was unusable on any page that already had issues: turning it on
