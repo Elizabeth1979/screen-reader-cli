@@ -56,8 +56,11 @@ stay personal whoever pushes.
 
 ## Releasing
 
-Version bump in package.json → merge → Actions → "Publish to npm" → Run
-workflow (or publish a GitHub Release). Authenticates with npm trusted
+Version bump in package.json → merge. That's all: `publish.yml` runs on every
+push to main and publishes by itself when the version isn't on npm yet (other
+merges skip in seconds), then tags `vX.Y.Z`. Never tell the maintainer to run
+it by hand. The manual "Run workflow" button and GitHub Releases are only for
+re-running a failed publish. Authenticates with npm trusted
 publishing (OIDC), so there is no token to store or renew; the trusted
 publisher is set on npmjs.com (package Settings → Trusted publisher →
 `publish.yml`). Workflow runs the full suite before publishing.
