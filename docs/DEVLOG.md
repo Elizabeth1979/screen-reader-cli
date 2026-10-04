@@ -6,6 +6,19 @@ Newest entries first.
 
 ---
 
+## 2026-10-04 — 0.9.0
+
+Ships one feature: every `scan` finding shows what a screen reader user hears
+at that element — `screen reader says "button"` for a button with no name —
+in the terminal, the `--visual` report and `--json` (`element.announcement`).
+Entry below.
+
+Behaviour to know before upgrading: `scan` and the dashboard now open pages
+with CSP bypassed, as `audit` always has, and each scan adds one virtual
+screen reader walk of the page (capped at 2,000 steps / 15 s).
+
+---
+
 ## 2026-10-04 — Every finding says what the screen reader says
 
 `scan` was axe with a different wrapper: "Buttons must have discernible text"
