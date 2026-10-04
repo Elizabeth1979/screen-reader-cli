@@ -6,7 +6,7 @@ Newest entries first.
 
 ---
 
-## 2026-10-04 — 0.7.1
+## 2026-10-04 — 0.8.0
 
 Ships the three scan fixes merged today:
 
@@ -18,8 +18,10 @@ Ships the three scan fixes merged today:
   needs that package installed.
 
 Behaviour to know before upgrading: the scan now also runs axe's WCAG 2.2
-rules, so a page that passed `--fail-on` on 0.7.0 can fail on 0.7.1 — most
-likely on 2.5.8 target size.
+rules, so a page that passed `--fail-on` on 0.7.0 can fail on 0.8.0 — most
+likely on 2.5.8 target size. That is why this is 0.8.0 and not 0.7.1: a
+`^0.7.0` range never picks up 0.8, so nobody's CI turns red without them
+choosing to upgrade.
 
 ---
 
