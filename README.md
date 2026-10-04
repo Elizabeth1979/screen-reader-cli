@@ -159,13 +159,26 @@ screenreader scan <url>                                    # Text report in term
 screenreader scan <url> --json                             # JSON (for CI)
 screenreader scan <url> --fail-on critical                 # Exit 1 if critical violations (CI gate)
 screenreader scan <url> --visual                           # HTML report opens in browser
-screenreader scan <url> --test                             # Generate Playwright test file
+screenreader scan <url> --test                             # Generate Playwright test file (needs @axe-core/playwright)
 screenreader scan <url> --test --framework vitest          # Generate Vitest stubs
 screenreader scan <url> --test --output my-tests.test.js   # Custom output path
 screenreader scan <url> --ai                               # AI analysis of results
 screenreader scan <url> --ai --model sonnet                # Use Claude Sonnet
 screenreader scan <url> --ai --model gpt-4o                # Use GPT-4o
 screenreader scan <url> --ai --provider ollama             # Use local model (free)
+```
+
+#### Regression tests (`--test`)
+
+Writes one Playwright test per axe rule the scan failed. Each test runs that
+rule with [`@axe-core/playwright`](https://www.npmjs.com/package/@axe-core/playwright) —
+the same engine as the scan, so a test fails exactly when the scan would. It
+stays red until the rule passes, then guards against regressions.
+
+```bash
+npm install -D @playwright/test @axe-core/playwright
+screenreader scan https://example.com --test
+npx playwright test a11y-regression.test.js
 ```
 
 #### AI analysis (`--ai`)

@@ -6,6 +6,30 @@ Newest entries first.
 
 ---
 
+## 2026-10-04 — One block per rule, and generated tests that agree with the scan
+
+**Grouped terminal output.** `scan` printed one block per failing element, so
+four elements outside a landmark were four identical blocks and a real page
+with 40 unlabelled icons was a wall of repeats. It now prints one block per
+rule with a count ("×4") and the elements listed, five then "+N more". The
+grouping is the HTML report's, moved to `util.js` (`groupByRule`) so both
+read the same way. JSON is unchanged: still one entry per element.
+
+**`--test` asserts with axe.** The Playwright generator hand-wrote a re-check
+per rule, and they drifted from axe. Run against a page with every issue fixed,
+three still failed: a link wrapping `<img alt="Search">` (it read
+`textContent`), a button named by `aria-labelledby` (it read only
+`aria-label`), and a disabled `tabindex="-1"` button inside `aria-hidden`.
+Rules without a re-check became empty tests that always passed, two of ten on
+the fixture. Each generated test now runs its one rule through
+`@axe-core/playwright` — the same engine as the scan, so the same verdict.
+Verified both ways: 10/10 fail on `violations.html`, 10/10 pass on a fixed
+copy. The generated file needs `@axe-core/playwright` installed; its header
+says so. Vitest output is unchanged — still `test.todo` stubs, since it has no
+page to run axe on until the user renders their component.
+
+---
+
 ## 2026-10-04 — Findings name the WCAG criterion; WCAG 2.2 rules on
 
 Every finding printed "WCAG: 2a". That is axe's *level* tag (WCAG 2.0, level
