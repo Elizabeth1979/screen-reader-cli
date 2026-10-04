@@ -51,6 +51,16 @@ describe("scan command — text output", () => {
     assert.doesNotMatch(output, /WCAG: 2a\b/);
   });
 
+  it("groups repeated findings into one block per rule", () => {
+    const output = run("scan", VIOLATIONS_FIXTURE);
+    // The fixture leaves h1, h3, img and input outside any landmark:
+    // one "region" block ×4, not four blocks.
+    assert.match(output, /Found \d+ issues in \d+ rules/);
+    const region = output.match(/\] All page content should be contained by landmarks.*/g) || [];
+    assert.equal(region.length, 1, "region rule should print once");
+    assert.match(region[0], /×4/);
+  });
+
   it("detects heading skip", () => {
     const output = run("scan", VIOLATIONS_FIXTURE);
     assert.ok(
@@ -174,21 +184,19 @@ describe("scan command — test generation", () => {
       content.includes("test.beforeEach"),
       "should have beforeEach with goto",
     );
-    // Guard against the generator falling through to generic TODO stubs:
-    // the fixture's axe findings (image-alt, heading-order, button-name…)
-    // must map to their concrete assertion bodies.
+    // Assertions come from axe itself, one test per failing rule — never
+    // hand-written re-checks (they drifted from axe) or empty TODO stubs.
     assert.ok(
-      content.includes("all images have alt text"),
-      "image-alt should generate the concrete alt-text assertion",
+      content.includes("@axe-core/playwright"),
+      "should assert with axe via @axe-core/playwright",
     );
-    assert.ok(
-      content.includes("heading hierarchy has no skips"),
-      "heading-order should generate the concrete heading assertion",
-    );
-    assert.ok(
-      content.includes("all buttons have accessible names"),
-      "button-name should generate the concrete button-name assertion",
-    );
+    for (const rule of ["image-alt", "heading-order", "button-name"]) {
+      assert.ok(
+        content.includes(`"${rule}"`),
+        `${rule} should be among the generated rules`,
+      );
+    }
+    assert.ok(!content.includes("TODO"), "should not emit empty stubs");
     assert.ok(content.includes("expect("), "should contain real assertions");
 
     fs.unlinkSync(outPath);
