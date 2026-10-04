@@ -1,12 +1,40 @@
 import fs from "node:fs";
 import { VIOLATION_CHECKS } from "./violations.js";
-import { resolveBundledAsset } from "../util.js";
+import { chromium } from "playwright";
+import {
+  resolveBundledAsset,
+  resolveDeviceOptions,
+  resolveTarget,
+} from "../util.js";
 import { injectVirtualScreenReader } from "../bridge.js";
 
 const AXE_SOURCE = fs.readFileSync(
   resolveBundledAsset("axe-core/axe.min.js"),
   "utf-8",
 );
+
+// Open a URL or file in a fresh headless browser and scan it — the whole
+// pipeline for callers without scan's flags (dashboard, MCP server).
+export async function scanUrl(url, { device } = {}) {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const context = await browser.newContext({
+      ...resolveDeviceOptions({ device }),
+      // Lets the virtual screen reader load, for per-finding announcements.
+      bypassCSP: true,
+    });
+    const page = await context.newPage();
+    await page.goto(resolveTarget(url), {
+      waitUntil: "domcontentloaded",
+      timeout: 30000,
+    });
+    // Wait a bit for JS-rendered content, mirroring the scan command
+    await page.waitForTimeout(2000);
+    return await scan(page);
+  } finally {
+    await browser.close();
+  }
+}
 
 export async function scan(page) {
   // 1. DOM reading order

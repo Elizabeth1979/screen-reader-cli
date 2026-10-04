@@ -296,6 +296,42 @@ Found 1 new issues in 1 rules (1 critical, 0 moderate, 0 minor)
   result has a `baseline` summary with the `fixed` list. The `--visual`
   report still shows every finding.
 
+### `mcp` — For AI coding assistants
+
+Lets an AI coding assistant (Claude Code, Cursor, VS Code, …) check a page's
+screen reader experience while it writes the code, instead of someone
+running a scan after. It runs as an [MCP](https://modelcontextprotocol.io)
+server and gives the assistant two tools:
+
+| Tool        | What the assistant gets back                                                                 |
+| ----------- | -------------------------------------------------------------------------------------------- |
+| `scan_page` | Each accessibility issue, its elements, and what a screen reader says there (`"button"`)      |
+| `read_page` | The whole page as a screen reader reads it, in order: what a blind user hears                 |
+
+Both take a URL (a local dev server works) or a path to an HTML file.
+
+Claude Code:
+
+```bash
+claude mcp add screen-reader -- npx -y screen-reader-cli mcp
+```
+
+Any other MCP client (Cursor, VS Code, Claude Desktop), in its MCP config:
+
+```json
+{
+  "mcpServers": {
+    "screen-reader": {
+      "command": "npx",
+      "args": ["-y", "screen-reader-cli", "mcp"]
+    }
+  }
+}
+```
+
+Needs the Chromium download from the install step
+(`npx playwright install chromium`).
+
 ### `dashboard` — Point-and-click scanning
 
 Prefer buttons over commands? Start the dashboard once and run every scan
@@ -622,6 +658,8 @@ Planned (roughly in order):
 - [ ] **Asset capture** — download page images during a scan for audit evidence
 - [ ] **Multi-page crawling** — scan a whole site from a sitemap or crawl
 - [x] **Baseline & diff** — fail CI only on *new* violations (`--baseline`)
+- [x] **AI assistant integration** — `screenreader mcp`, an MCP server for
+      coding assistants
 - [ ] **GitHub Action** — a published action wrapping `scan --fail-on`
 - [ ] **Screen reader transcript diff** — compare what's announced before vs.
       after a change

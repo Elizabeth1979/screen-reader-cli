@@ -5,6 +5,7 @@
   "type": "module",
   "bin": {
     "screenreader": "./bin/cli.js",
+    "screen-reader-cli": "./bin/cli.js",
     "sr": "./bin/sr.js"
   },
   "files": [
@@ -17,7 +18,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test --test-concurrency=1 test/update-notice.test.js test/scan.test.js test/commands.test.js test/bridge.test.js test/audit.test.js test/user-agent.test.js test/dependency-resolution.test.js test/daemon.test.js test/live.test.js test/ai-analyzer.test.js test/dashboard.test.js test/report.test.js test/baseline.test.js",
+    "test": "node --test --test-concurrency=1 test/update-notice.test.js test/scan.test.js test/commands.test.js test/bridge.test.js test/audit.test.js test/user-agent.test.js test/dependency-resolution.test.js test/daemon.test.js test/live.test.js test/ai-analyzer.test.js test/dashboard.test.js test/report.test.js test/baseline.test.js test/mcp.test.js",
     "test:e2e": "node --test test/e2e.test.js"
   },
   "keywords": [
