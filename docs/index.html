@@ -291,6 +291,9 @@
       margin: 0;
       padding: 0;
       display: grid;
+      /* minmax(0, …): without it the track grows to its widest code line and
+         the page scrolls sideways on phones. */
+      grid-template-columns: minmax(0, 1fr);
       gap: 18px;
       max-width: 760px;
     }
@@ -326,12 +329,20 @@
       color: #eef0f3;
       border-radius: 10px;
       padding: 13px 16px;
-      overflow-x: auto;
+      /* Long commands wrap rather than scroll: no sideways page scroll on
+         phones, and no scroll box that would need keyboard focus. */
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
       margin: 0;
       font-size: 14.5px;
       line-height: 1.7;
     }
     code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+    .who pre.cmd {
+      margin-top: 14px;
+      font-size: 13.5px;
+      line-height: 1.6;
+    }
 
     kbd {
       font-family: inherit;
@@ -525,6 +536,39 @@
             <span class="role">Everyone</span>
             <h3>Learn by listening</h3>
             <p>The report shows what a screen reader announces, element by element. It's the fastest way to build empathy.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="band tint" id="for-developers" aria-labelledby="dev-title">
+      <div class="wrap">
+        <h2 id="dev-title">For developers: it fits how you already work</h2>
+        <p class="section-note">Four things that make it practical on a real codebase, new in version 0.11.</p>
+        <div class="who-grid">
+          <article class="who">
+            <span class="role">Every report</span>
+            <h3>Hear each problem, not just its rule</h3>
+            <p>Every issue shows what a screen reader says at that element. A button with no name is read as just “button”, so you hear the problem, next to the WCAG rule it breaks (e.g. 4.1.2).</p>
+          </article>
+          <article class="who">
+            <span class="role">CI</span>
+            <h3>Fail only on new issues</h3>
+            <p>Most real sites already have issues, so a strict gate goes red on day one. Accept today's issues once; after that the build fails only on what's added.</p>
+            <pre class="cmd"><code>screenreader scan https://your-site.com --baseline a11y-baseline.json --fail-on critical</code></pre>
+          </article>
+          <article class="who">
+            <span class="role">AI assistants</span>
+            <h3>Let your assistant check its own work</h3>
+            <p>Claude Code, Cursor and other AI coding assistants can scan the page they just built and hear it read, before they call it done. Needs the browser download from “Quick try”.</p>
+            <pre class="cmd"><code>claude mcp add screen-reader -- npx -y screen-reader-cli mcp</code></pre>
+          </article>
+          <article class="who">
+            <span class="role">Quick try</span>
+            <h3>Try it without installing</h3>
+            <p>Have Node.js? No global install: the first line downloads the browser it scans with (once), the second scans any page.</p>
+            <pre class="cmd"><code>npx playwright install chromium
+npx screen-reader-cli scan https://your-site.com</code></pre>
           </article>
         </div>
       </div>
