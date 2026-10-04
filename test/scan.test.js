@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import os from "node:os";
 import { chromium } from "playwright";
-import { scan } from "../src/services/scanner.js";
+import { scan, wcagLabel } from "../src/services/scanner.js";
 import { openAndSettle } from "../src/page-state.js";
 import { splitSelectorValue } from "../src/util.js";
 
@@ -42,6 +42,13 @@ describe("scan command — text output", () => {
         output.includes("MINOR"),
       "should show severity labels",
     );
+  });
+
+  it("names the WCAG success criterion, not just the level", () => {
+    const output = run("scan", VIOLATIONS_FIXTURE);
+    // image-alt is 1.1.1, level A — not the bare level tag "2a".
+    assert.match(output, /WCAG: 1\.1\.1 \(A\)/);
+    assert.doesNotMatch(output, /WCAG: 2a\b/);
   });
 
   it("detects heading skip", () => {
@@ -511,4 +518,13 @@ test("--type warns and continues when the selector matches nothing", () => {
     { encoding: "utf-8", timeout: 60_000, stdio: ["pipe", "pipe", "pipe"] },
   );
   assert.ok(output.includes("Screen Reader Scan:"), "scan still completes");
+});
+
+describe("wcagLabel", () => {
+  it("maps axe tags to criterion and level", () => {
+    assert.equal(wcagLabel(["cat.aria", "wcag2a", "wcag412"]), "4.1.2 (A)");
+    assert.equal(wcagLabel(["wcag2aa", "wcag143"]), "1.4.3 (AA)");
+    assert.equal(wcagLabel(["wcag22aa", "wcag258"]), "2.5.8 (AA)");
+    assert.equal(wcagLabel(["best-practice"]), "");
+  });
 });

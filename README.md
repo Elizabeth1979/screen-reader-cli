@@ -152,7 +152,7 @@ screenreader
 
 ### `scan` — The main command
 
-Scans a page for screen-reader-specific violations using custom DOM checks + axe-core, then outputs a merged, deduplicated report.
+Scans a page with axe-core (WCAG 2.0–2.2 A/AA + best practices) and adds the page's heading outline, landmarks and reading order — structure axe does not report.
 
 ```bash
 screenreader scan <url>                                    # Text report in terminal
@@ -189,7 +189,7 @@ Auto-detects provider from model name: `--model sonnet` → Anthropic, `--model 
 - Missing form labels
 - Missing main landmark
 - Focusable elements inside `aria-hidden="true"`
-- All axe-core WCAG 2 AA rules
+- All axe-core WCAG 2.0–2.2 A/AA rules, each tagged with its success criterion (e.g. `4.1.2 (A)`)
 
 Works with URLs and local files:
 
