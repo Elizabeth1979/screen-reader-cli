@@ -6,6 +6,25 @@ Newest entries first.
 
 ---
 
+## 2026-10-04 — 0.8.0
+
+Ships the three scan fixes merged today:
+
+- Findings name the WCAG success criterion, "1.1.1 (A)", instead of "2a".
+- The terminal report prints one block per rule with a count, not one per
+  element.
+- `--test` writes Playwright tests that assert with axe through
+  `@axe-core/playwright`, so they agree with the scan. The generated file
+  needs that package installed.
+
+Behaviour to know before upgrading: the scan now also runs axe's WCAG 2.2
+rules, so a page that passed `--fail-on` on 0.7.0 can fail on 0.8.0 — most
+likely on 2.5.8 target size. That is why this is 0.8.0 and not 0.7.1: a
+`^0.7.0` range never picks up 0.8, so nobody's CI turns red without them
+choosing to upgrade.
+
+---
+
 ## 2026-10-04 — One block per rule, and generated tests that agree with the scan
 
 **Grouped terminal output.** `scan` printed one block per failing element, so
