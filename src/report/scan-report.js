@@ -1,4 +1,4 @@
-import { groupByRule } from "../util.js";
+import { announcementText, groupByRule } from "../util.js";
 
 export function generateScanReport(results, { aiAnalysis, aiMeta } = {}) {
   const severityColor = { critical: "#FF4D4F", moderate: "#FA8C16", minor: "#1890FF" };
@@ -38,6 +38,7 @@ export function generateScanReport(results, { aiAnalysis, aiMeta } = {}) {
           ${inst.element?.screenshot ? `<img class="instance-shot" src="data:image/jpeg;base64,${inst.element.screenshot}" alt="Screenshot of the affected element ${esc(inst.element?.selector || "")}">` : ""}
           <div class="instance-meta">
             ${inst.element?.selector ? `<code class="issue-selector">${esc(inst.element.selector)}</code>` : ""}
+            ${announcementText(inst.element) ? `<p class="instance-heard">${esc(announcementText(inst.element))}</p>` : ""}
             ${inst.element?.html ? `<code class="instance-html">${esc(inst.element.html.slice(0, 180))}</code>` : ""}
           </div>
         </div>`;
@@ -451,6 +452,14 @@ export function generateScanReport(results, { aiAnalysis, aiMeta } = {}) {
       white-space: nowrap;
     }
 
+    .instance-heard {
+      margin: 0.25rem 0 0;
+      font-size: 0.9rem;
+      font-style: italic;
+    }
+    .instance-heard::first-letter {
+      text-transform: uppercase;
+    }
     .wcag-chip {
       font-family: var(--font-mono);
       font-size: 0.7rem;

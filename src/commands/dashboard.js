@@ -22,7 +22,11 @@ const MAX_REPORTS = 50;
 
 async function runScan(url) {
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ userAgent: CHROME_UA });
+  const context = await browser.newContext({
+    userAgent: CHROME_UA,
+    // Lets the virtual screen reader load, for per-finding announcements.
+    bypassCSP: true,
+  });
   const page = await context.newPage();
   try {
     await page.goto(resolveTarget(url), {

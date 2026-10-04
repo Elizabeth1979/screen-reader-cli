@@ -174,3 +174,15 @@ export function groupByRule(violations, aiFixMap = {}) {
       b.instances.length - a.instances.length,
   );
 }
+
+// What a screen reader user hears at a failing element, in words. The states
+// come from scanner.js attachAnnouncements: a phrase (possibly an ancestor's,
+// when announcedWithin), null (the walk finished and never reached it), or
+// undefined (unknown — print nothing).
+export function announcementText({ announcement, announcedWithin } = {}) {
+  if (announcement === null) return "screen reader skips it — never announced";
+  if (typeof announcement !== "string") return "";
+  return announcedWithin
+    ? `screen reader reads it only as part of "${announcement}"`
+    : `screen reader says "${announcement}"`;
+}

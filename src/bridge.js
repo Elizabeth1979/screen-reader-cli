@@ -11,6 +11,21 @@ const VSR_BUNDLE_PATH = resolveBundledAsset(
 );
 const VSR_BUNDLE = fs.readFileSync(VSR_BUNDLE_PATH, "utf-8");
 
+// Load the Virtual Screen Reader into the page as window.__vsr. Imported as an
+// ESM module from a blob URL, so the page's CSP must be bypassed
+// (bypassCSP: true on the context) or the import is refused.
+export async function injectVirtualScreenReader(page) {
+  await page.evaluate(async (bundleSource) => {
+    if (window.__vsrLoaded) return;
+    const blob = new Blob([bundleSource], { type: "application/javascript" });
+    const blobUrl = URL.createObjectURL(blob);
+    const module = await import(blobUrl);
+    URL.revokeObjectURL(blobUrl);
+    window.__vsr = module.virtual;
+    window.__vsrLoaded = true;
+  }, VSR_BUNDLE);
+}
+
 export async function createBridge(browser, opts = {}) {
   // A page that renders different markup for phones cannot be audited under a
   // desktop user agent: the traversal comes back clean because the mobile
@@ -42,19 +57,6 @@ export async function createBridge(browser, opts = {}) {
   let page = null;
   let vsrStarted = false;
 
-  async function injectVSR() {
-    // Inject the VSR bundle as an ESM module via a blob URL
-    await page.evaluate(async (bundleSource) => {
-      if (window.__vsrLoaded) return;
-      const blob = new Blob([bundleSource], { type: "application/javascript" });
-      const blobUrl = URL.createObjectURL(blob);
-      const module = await import(blobUrl);
-      URL.revokeObjectURL(blobUrl);
-      window.__vsr = module.virtual;
-      window.__vsrLoaded = true;
-    }, VSR_BUNDLE);
-  }
-
   async function ensureStarted() {
     if (!vsrStarted) {
       await page.evaluate(async () => {
@@ -79,7 +81,7 @@ export async function createBridge(browser, opts = {}) {
         page = await context.newPage();
       }
       await page.goto(resolveTarget(url), { waitUntil: "domcontentloaded" });
-      await injectVSR();
+      await injectVirtualScreenReader(page);
       await ensureStarted();
     },
 

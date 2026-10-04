@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { VIOLATION_CHECKS } from "./violations.js";
 import { resolveBundledAsset } from "../util.js";
+import { injectVirtualScreenReader } from "../bridge.js";
 
 const AXE_SOURCE = fs.readFileSync(
   resolveBundledAsset("axe-core/axe.min.js"),
@@ -30,6 +31,10 @@ export async function scan(page) {
   // 4c. Photograph failing elements so reports can show the thing, not just
   // its selector. Capped per rule and in total to keep reports light.
   await captureElementShots(page, merged);
+
+  // 4d. What a screen reader user hears at each failing element. Runs last so
+  // the screen reader cannot affect what axe or the photos saw.
+  await attachAnnouncements(page, merged);
 
   // 5. Screenshot for visual report
   const screenshot = await page.screenshot({ fullPage: true, type: "png" });
@@ -220,6 +225,122 @@ async function captureElementShots(page, violations) {
     } catch {
       // Element not visible / gone / selector too exotic — skip its photo.
     }
+  }
+}
+
+// One forward walk of the page with the Virtual Screen Reader, recording the
+// first phrase spoken on or inside each failing element:
+//   element.announcement = "button"   what the listener hears there
+//     + element.announcedWithin       never reached itself, but an ancestor
+//                                     was read as one item ("button" for an
+//                                     <img> inside a <button>) — that phrase
+//   element.announcement = null       the walk finished and never reached it
+//   (absent)                          unknown: page-level target, walk cut
+//                                     short, or the screen reader failed
+// Bounded twice, like the photos: a step and time budget inside the page,
+// and a wall-clock race outside it in case the evaluate itself hangs.
+const ANNOUNCE_MAX_STEPS = 2000;
+const ANNOUNCE_BUDGET_MS = 15_000;
+const ANNOUNCE_HARD_TIMEOUT_MS = 20_000;
+
+async function attachAnnouncements(page, violations) {
+  const selectors = [
+    ...new Set(violations.map((v) => v.element?.selector).filter(Boolean)),
+  ];
+  if (selectors.length === 0) return;
+
+  try {
+    await injectVirtualScreenReader(page);
+    const walk = page.evaluate(
+      async ({ selectors, maxSteps, budgetMs }) => {
+        // html/body/head contain everything, so "the first phrase inside"
+        // would be the page's first phrase — true but meaningless.
+        const PAGE_LEVEL = new Set(["HTML", "HEAD", "BODY"]);
+        const targets = selectors.map((s) => {
+          try {
+            const el = document.querySelector(s);
+            return el && !PAGE_LEVEL.has(el.tagName) ? el : null;
+          } catch {
+            return null;
+          }
+        });
+        const heard = {};
+        const visited = []; // [element, phrase] per step, for the fallback
+        const vsr = window.__vsr;
+        const deadline = Date.now() + budgetMs;
+        let complete = false;
+        await vsr.start({ container: document.body });
+        try {
+          for (let i = 0; i < maxSteps && Date.now() < deadline; i++) {
+            await vsr.next();
+            const phrase = await vsr.lastSpokenPhrase();
+            if (phrase === "end of document") {
+              complete = true;
+              break;
+            }
+            const node = vsr.activeNode;
+            const el = node instanceof Element ? node : node?.parentElement;
+            if (!el) continue;
+            visited.push([el, phrase]);
+            targets.forEach((t, idx) => {
+              if (t && !(selectors[idx] in heard) && t.contains(el)) {
+                heard[selectors[idx]] = phrase;
+              }
+            });
+          }
+        } finally {
+          await vsr.stop();
+        }
+        // A target never reached may sit inside something read as one item —
+        // an ancestor the walk announced but never stepped into.
+        const within = {};
+        const skipped = [];
+        if (complete) {
+          selectors.forEach((s, idx) => {
+            const t = targets[idx];
+            if (!t || s in heard) return;
+            const atomic = visited.find(
+              ([a]) =>
+                a !== t &&
+                a.contains(t) &&
+                !visited.some(([b]) => b !== a && a.contains(b)),
+            );
+            if (atomic) within[s] = atomic[1];
+            else skipped.push(s);
+          });
+        }
+        return { heard, within, skipped };
+      },
+      {
+        selectors,
+        maxSteps: ANNOUNCE_MAX_STEPS,
+        budgetMs: ANNOUNCE_BUDGET_MS,
+      },
+    );
+    walk.catch(() => {}); // late rejection after the race must not surface
+    const { heard, within, skipped } = await Promise.race([
+      walk,
+      new Promise((_, reject) => {
+        const t = setTimeout(
+          () => reject(new Error("announcement deadline")),
+          ANNOUNCE_HARD_TIMEOUT_MS,
+        );
+        t.unref?.();
+      }),
+    ]);
+    const skippedSet = new Set(skipped);
+    for (const v of violations) {
+      const sel = v.element?.selector;
+      if (!sel) continue;
+      if (sel in heard) v.element.announcement = heard[sel];
+      else if (sel in within) {
+        v.element.announcement = within[sel];
+        v.element.announcedWithin = true;
+      } else if (skippedSet.has(sel)) v.element.announcement = null;
+    }
+  } catch {
+    // CSP refused the bundle, the walk timed out, or the page navigated
+    // away. Findings stand without announcements.
   }
 }
 
