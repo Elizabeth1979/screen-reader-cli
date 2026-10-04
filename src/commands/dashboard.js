@@ -4,11 +4,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { Command } from "commander";
-import { chromium } from "playwright";
-import { scan } from "../services/scanner.js";
+import { scanUrl } from "../services/scanner.js";
 import { generateScanReport } from "../report/scan-report.js";
 import { openExternal } from "../report/open.js";
-import { CHROME_UA, resolveTarget } from "../util.js";
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PAGE = fs.readFileSync(
@@ -19,28 +18,6 @@ const PAGE = fs.readFileSync(
 // Keep the newest reports in memory; the dashboard is a local, single-user
 // tool, so a small bounded history is enough.
 const MAX_REPORTS = 50;
-
-async function runScan(url) {
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({
-    userAgent: CHROME_UA,
-    // Lets the virtual screen reader load, for per-finding announcements.
-    bypassCSP: true,
-  });
-  const page = await context.newPage();
-  try {
-    await page.goto(resolveTarget(url), {
-      waitUntil: "domcontentloaded",
-      timeout: 30000,
-    });
-    // Wait a bit for JS-rendered content, mirroring the scan command
-    await page.waitForTimeout(2000);
-    return await scan(page);
-  } finally {
-    await context.close();
-    await browser.close();
-  }
-}
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -100,7 +77,7 @@ export function createDashboardServer() {
         return;
       }
       try {
-        const results = await runScan(target);
+        const results = await scanUrl(target);
         const id = randomUUID();
         const html = generateScanReport(results, {});
         reports.set(id, {

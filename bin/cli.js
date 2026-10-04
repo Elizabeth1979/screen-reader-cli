@@ -10,6 +10,7 @@ import { scanCommand } from "../src/commands/scan.js";
 import { liveCommand } from "../src/commands/live.js";
 import { dashboardCommand } from "../src/commands/dashboard.js";
 import { startRepl } from "../src/repl.js";
+import { startMcpServer } from "../src/mcp.js";
 import { notifyIfOutdated } from "../src/update-notice.js";
 
 const { version } = JSON.parse(
@@ -36,6 +37,14 @@ program.addCommand(screenshotCommand());
 program.addCommand(scanCommand());
 program.addCommand(liveCommand());
 program.addCommand(dashboardCommand());
+
+program
+  .command("mcp")
+  .description(
+    "Run as an MCP server on stdio, so AI coding assistants can scan pages " +
+      "and hear them read while they write the code",
+  )
+  .action(() => startMcpServer({ version }));
 
 program
   .command("repl")

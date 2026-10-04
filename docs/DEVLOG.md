@@ -6,6 +6,42 @@ Newest entries first.
 
 ---
 
+## 2026-10-04 — `mcp`: AI coding assistants can check their own UI work
+
+The tool only helped once someone remembered to run it, usually after the
+code was written. `screenreader mcp` runs it as an MCP server, so an AI coding
+assistant can call it itself while it builds a page: `scan_page` returns the
+issues with what a screen reader says at each element, `read_page` the page
+read top to bottom.
+
+Decisions:
+
+- **No MCP SDK.** The stdio transport is newline-delimited JSON-RPC and the
+  server needs four methods. The SDK would have added 17 dependencies
+  (express, hono, …) to a CLI. `src/mcp.js` is about 200 lines with no new
+  dependency.
+- **The `initialize` handshake, 2024-11-05 to 2025-11-25.** That is what
+  clients in use speak. The 2026-07-28 revision drops the handshake; its
+  clients probe with `server/discover` first, and the spec makes "method not
+  found" the signal to fall back to `initialize`, so both eras connect.
+- **stdout is protocol only.** `console.log` is pointed at stderr for the
+  whole process; one stray log line would break the client. A test parses
+  every stdout line as JSON.
+- **A page that fails to load is a tool result (`isError: true`), not a
+  protocol error**, so the assistant reads it and fixes the URL.
+- **Tool calls run one at a time**, so an eager assistant can't start ten
+  browsers at once.
+- The dashboard's scan-a-URL helper moved into `scanner.js` as `scanUrl`,
+  shared by both.
+
+Found on the way: `npx screen-reader-cli` did not work. The package has two
+commands, `screenreader` and `sr`, neither named like the package, so npx
+stopped with "could not determine executable to run". A third command named
+`screen-reader-cli` (same entry point as `screenreader`) fixes it, and makes
+the assistant setup one line: `npx -y screen-reader-cli mcp`.
+
+---
+
 ## 2026-10-04 — 0.10.0
 
 Ships one feature: `scan --baseline <file>` so CI fails only on new issues.
