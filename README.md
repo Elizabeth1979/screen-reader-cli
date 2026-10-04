@@ -261,6 +261,41 @@ jobs:
 
 Combine with `--json` to also archive the full results as a build artifact.
 
+#### Gate only new issues (`--baseline`)
+
+A page that already has issues can't turn on `--fail-on` without the build
+going red on day one. Accept today's findings once, commit the file, and CI
+fails only on what is added after:
+
+```bash
+# once: accept what is there today, then commit a11y-baseline.json
+screenreader scan https://staging.example.com --baseline a11y-baseline.json --update-baseline
+
+# in CI: fail only on findings that are not in the baseline
+screenreader scan https://staging.example.com --baseline a11y-baseline.json --fail-on critical
+```
+
+```
+Baseline a11y-baseline.json: 1 new, 12 known (not listed), 1 fixed
+  fixed: Images must have alternative text (img)
+  Run with --update-baseline to lock these in.
+
+Found 1 new issues in 1 rules (1 critical, 0 moderate, 0 minor)
+  [CRITICAL] Buttons must have discernible text
+    Element: button:nth-child(8)  → screen reader says "button"
+```
+
+- A finding is matched by rule, selector and markup. It stays "known" when it
+  only moves (new siblings shift its selector) or only its markup is edited;
+  it is "new" when both change.
+- Matching counts: a fourth copy of an accepted issue is new.
+- A missing or unreadable baseline file fails the run rather than passing.
+- When issues are fixed, re-run with `--update-baseline` so they can't
+  quietly come back.
+- In `--json`, each violation carries `"baseline": "new" | "known"` and the
+  result has a `baseline` summary with the `fixed` list. The `--visual`
+  report still shows every finding.
+
 ### `dashboard` — Point-and-click scanning
 
 Prefer buttons over commands? Start the dashboard once and run every scan
@@ -586,7 +621,7 @@ Planned (roughly in order):
       element's full context (today: `--ai` gives prioritized fixes + a score)
 - [ ] **Asset capture** — download page images during a scan for audit evidence
 - [ ] **Multi-page crawling** — scan a whole site from a sitemap or crawl
-- [ ] **Baseline & diff** — fail CI only on *new* violations
+- [x] **Baseline & diff** — fail CI only on *new* violations (`--baseline`)
 - [ ] **GitHub Action** — a published action wrapping `scan --fail-on`
 - [ ] **Screen reader transcript diff** — compare what's announced before vs.
       after a change
