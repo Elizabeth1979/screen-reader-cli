@@ -6,6 +6,19 @@ Newest entries first.
 
 ---
 
+## 2026-10-04 — 0.11.0
+
+Ships `screenreader mcp`: an MCP server so AI coding assistants can scan a
+page and hear it read while they build it (entry below). Set up with
+`claude mcp add screen-reader -- npx -y screen-reader-cli mcp`.
+
+Also from this release on, `npx screen-reader-cli <command>` works. It never
+did before: the package had no command named like itself.
+
+Nothing changes for existing commands.
+
+---
+
 ## 2026-10-04 — `mcp`: AI coding assistants can check their own UI work
 
 The tool only helped once someone remembered to run it, usually after the
