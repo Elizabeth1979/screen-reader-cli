@@ -8,6 +8,11 @@ import { generateScanReport } from "../report/scan-report.js";
 import { openReport } from "../report/open.js";
 import { generateTests } from "../services/test-generator.js";
 import {
+  compareToBaseline,
+  readBaseline,
+  writeBaseline,
+} from "../services/baseline.js";
+import {
   analyzeWithAI,
   resolveProviderAndModel,
 } from "../services/ai-analyzer.js";
@@ -110,6 +115,16 @@ export function scanCommand() {
         "For CI pipelines.",
     )
     .option(
+      "--baseline <file>",
+      "Compare against a baseline of accepted violations: only new ones are " +
+        "listed and count toward --fail-on, so CI can gate a page that " +
+        "already has issues. Create or refresh it with --update-baseline.",
+    )
+    .option(
+      "--update-baseline",
+      "Write this scan's violations to the --baseline file, accepting them.",
+    )
+    .option(
       "--chrome-profile [path]",
       "Launch using a real Chrome user-data directory instead of a fresh " +
         "browser, so the scan reuses its cookies/login session. Defaults to " +
@@ -136,6 +151,14 @@ export function scanCommand() {
           `--fail-on must be one of critical, moderate, minor (got "${opts.failOn}")`,
         );
       }
+      if (opts.updateBaseline && !opts.baseline) {
+        throw new Error("--update-baseline needs --baseline <file>");
+      }
+      // Read it now: a missing baseline should fail before a browser starts.
+      const baseline =
+        opts.baseline && !opts.updateBaseline
+          ? readBaseline(opts.baseline)
+          : null;
 
       let browser = null;
       let context;
@@ -220,6 +243,25 @@ export function scanCommand() {
             : opts.device || "default";
         results.userAgent = deviceOpts.userAgent;
 
+        if (opts.baseline) {
+          const accepted = opts.updateBaseline
+            ? writeBaseline(opts.baseline, results)
+            : baseline;
+          results.baseline = {
+            file: opts.baseline,
+            ...compareToBaseline(results, accepted),
+          };
+          if (opts.updateBaseline) {
+            process.stderr.write(
+              `Baseline written: ${opts.baseline} (${accepted.findings.length} findings accepted)\n`,
+            );
+          } else if (results.baseline.urlMismatch) {
+            process.stderr.write(
+              `Warning: baseline was made for ${results.baseline.urlMismatch}, not ${results.url}\n`,
+            );
+          }
+        }
+
         // Run AI analysis first (if requested) so it can be included in reports
         let aiAnalysis = null;
         let aiMeta = null;
@@ -290,14 +332,16 @@ export function scanCommand() {
 
         if (opts.failOn) {
           const threshold = SEVERITY_RANK[opts.failOn];
+          // With a baseline, accepted findings never fail the run.
           const failing = results.violations.filter(
             (v) =>
+              v.baseline !== "known" &&
               (SEVERITY_RANK[v.severity] ?? SEVERITY_RANK.moderate) <=
-              threshold,
+                threshold,
           ).length;
           if (failing > 0) {
             process.stderr.write(
-              `\n--fail-on ${opts.failOn}: ${failing} violation(s) at or above "${opts.failOn}" severity.\n`,
+              `\n--fail-on ${opts.failOn}: ${failing} ${results.baseline ? "new " : ""}violation(s) at or above "${opts.failOn}" severity.\n`,
             );
             process.exitCode = 1;
           }
@@ -337,12 +381,35 @@ function printTextReport(results) {
   );
   console.log();
 
-  if (results.violations.length === 0) {
-    console.log("No screen reader violations found.");
-  } else {
-    const groups = groupByRule(results.violations);
+  // With a baseline, list only what is new; the accepted rest is one line.
+  const b = results.baseline;
+  const shown = b
+    ? results.violations.filter((v) => v.baseline === "new")
+    : results.violations;
+  if (b) {
     console.log(
-      `Found ${results.stats.violationCount} issues in ${groups.length} rules (${results.stats.critical} critical, ${results.stats.moderate} moderate, ${results.stats.minor} minor)\n`,
+      `Baseline ${b.file}: ${b.new} new, ${b.known} known (not listed), ${b.fixed.length} fixed`,
+    );
+    for (const f of b.fixed.slice(0, MAX_LISTED))
+      console.log(`  fixed: ${f.message} (${f.selector || f.id})`);
+    if (b.fixed.length > MAX_LISTED)
+      console.log(`  fixed: +${b.fixed.length - MAX_LISTED} more`);
+    if (b.fixed.length)
+      console.log("  Run with --update-baseline to lock these in.");
+    console.log();
+  }
+
+  if (shown.length === 0) {
+    console.log(
+      b
+        ? "No new screen reader violations."
+        : "No screen reader violations found.",
+    );
+  } else {
+    const groups = groupByRule(shown);
+    const count = (sev) => shown.filter((v) => v.severity === sev).length;
+    console.log(
+      `Found ${shown.length} ${b ? "new " : ""}issues in ${groups.length} rules (${count("critical")} critical, ${count("moderate")} moderate, ${count("minor")} minor)\n`,
     );
 
     for (const g of groups) {

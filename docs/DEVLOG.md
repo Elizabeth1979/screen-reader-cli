@@ -6,6 +6,34 @@ Newest entries first.
 
 ---
 
+## 2026-10-04 — `--baseline`: CI fails only on new issues
+
+`--fail-on` was unusable on any page that already had issues: turning it on
+made the build red on day one, so teams never turned it on. `--baseline
+<file>` accepts a set of findings; only findings not in it are listed and
+count toward `--fail-on`. `--update-baseline` writes the file from the
+current scan.
+
+Decisions:
+
+- **Creating the file is explicit.** A missing baseline fails the run. If it
+  were created on first use, a typo in the path in CI would create a fresh
+  baseline every run and pass forever.
+- **Identity is rule + selector + markup, matched in passes.** Selector alone
+  broke on the first try: adding one button to the fixture turned the known
+  button's `body > button` into `button:nth-child(4)`, so it showed as one
+  fixed plus one new and failed the build for an accepted issue. Markup alone
+  breaks when a label is edited. So: exact match, then same markup anywhere
+  (it moved), then same selector with new markup (it was edited). New only
+  when both changed.
+- **Matching counts.** Three accepted `image-alt` plus a fourth is one new.
+- **Fixed findings are listed with a nudge to `--update-baseline`**, so a fix
+  is locked in rather than left as slack a regression could use.
+- Only violations are baselined, not "needs review" (those never gate CI).
+  The `--visual` report is unchanged and shows everything.
+
+---
+
 ## 2026-10-04 — 0.9.0
 
 Ships one feature: every `scan` finding shows what a screen reader user hears
