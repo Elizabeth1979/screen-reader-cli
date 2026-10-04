@@ -229,7 +229,15 @@ async function runAxe(page) {
     const opts = {
       runOnly: {
         type: "tag",
-        values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"],
+        values: [
+          "wcag2a",
+          "wcag2aa",
+          "wcag21a",
+          "wcag21aa",
+          "wcag22a",
+          "wcag22aa",
+          "best-practice",
+        ],
       },
     };
     const results = await window.axe.run(document, opts);
@@ -263,6 +271,21 @@ const SEVERITY_MAP = {
   minor: "minor",
 };
 
+// axe tags a rule with its success criterion ("wcag412") and its level
+// ("wcag2a", "wcag21aa"). Turn them into "4.1.2 (A)". Best-practice rules
+// carry neither and get "".
+export function wcagLabel(tags = []) {
+  const sc = tags
+    .map((t) => /^wcag(\d)(\d)(\d+)$/.exec(t))
+    .find(Boolean);
+  if (!sc) return "";
+  const level = tags
+    .map((t) => /^wcag2\d?(a{1,3})$/.exec(t))
+    .find(Boolean);
+  const num = `${sc[1]}.${sc[2]}.${sc[3]}`;
+  return level ? `${num} (${level[1].toUpperCase()})` : num;
+}
+
 // Shape one axe rule+node pair into our canonical finding object.
 // Shared by the violations path (mergeResults) and the needs-review path,
 // so the two tiers can never drift in field shape. `extras` adds tier-specific
@@ -271,8 +294,7 @@ function mapAxeFinding(rule, node, extras = {}) {
   return {
     id: rule.id,
     message: rule.help,
-    wcag:
-      rule.tags.find((t) => t.startsWith("wcag"))?.replace("wcag", "") || "",
+    wcag: wcagLabel(rule.tags),
     suggestion: node.failureSummary || rule.description,
     element: { selector: node.target?.[0] || "", html: node.html },
     helpUrl: rule.helpUrl,

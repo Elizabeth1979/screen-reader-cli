@@ -6,6 +6,20 @@ Newest entries first.
 
 ---
 
+## 2026-10-04 — Findings name the WCAG criterion; WCAG 2.2 rules on
+
+Every finding printed "WCAG: 2a". That is axe's *level* tag (WCAG 2.0, level
+A), picked because it was the first tag starting with "wcag" — the success
+criterion tag ("wcag111") came later and was never read. A reader could not
+tell which criterion failed. Findings now read "1.1.1 (A)", in text, JSON, the
+HTML report and the `--ai` prompt alike, since they all read one field.
+
+The scan also now runs axe's WCAG 2.2 A/AA rules (`wcag22a`, `wcag22aa`, e.g.
+2.5.8 target size). WCAG 2.2 has been the W3C Recommendation since 2023. The
+docs page still passes `--fail-on minor` with them on.
+
+---
+
 ## 2026-09-27 — 0.7.0
 
 Released so the accessibility evidence engine can install `audit --record` from
