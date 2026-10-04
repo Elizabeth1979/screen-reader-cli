@@ -15,6 +15,7 @@ import {
   collectKeyValue,
   collectSelectorValue,
   DEVICE_NAMES,
+  groupByRule,
   resolveDeviceOptions,
   resolveTarget,
 } from "../util.js";
@@ -334,23 +335,13 @@ function printTextReport(results) {
   if (results.violations.length === 0) {
     console.log("No screen reader violations found.");
   } else {
+    const groups = groupByRule(results.violations);
     console.log(
-      `Found ${results.stats.violationCount} issues (${results.stats.critical} critical, ${results.stats.moderate} moderate, ${results.stats.minor} minor)\n`,
+      `Found ${results.stats.violationCount} issues in ${groups.length} rules (${results.stats.critical} critical, ${results.stats.moderate} moderate, ${results.stats.minor} minor)\n`,
     );
 
-    for (const v of results.violations) {
-      const sev =
-        v.severity === "critical"
-          ? "CRITICAL"
-          : v.severity === "moderate"
-            ? "MODERATE"
-            : "MINOR";
-      console.log(`  [${sev}] ${v.message}`);
-      if (v.element?.selector)
-        console.log(`    Element: ${v.element.selector}`);
-      if (v.wcag) console.log(`    WCAG: ${v.wcag}`);
-      if (v.suggestion) console.log(`    Fix: ${v.suggestion}`);
-      console.log();
+    for (const g of groups) {
+      printGroup(g, g.severity.toUpperCase(), { withFix: true });
     }
   }
 
@@ -360,12 +351,8 @@ function printTextReport(results) {
     console.log(
       `\n--- Needs Review (${needsReviewCount}) — axe could not auto-decide; verify manually ---\n`,
     );
-    for (const r of results.needsReview) {
-      console.log(`  [REVIEW] ${r.message}`);
-      if (r.element?.selector)
-        console.log(`    Element: ${r.element.selector}`);
-      if (r.wcag) console.log(`    WCAG: ${r.wcag}`);
-      console.log();
+    for (const g of groupByRule(results.needsReview)) {
+      printGroup(g, "REVIEW");
     }
   }
 
@@ -375,4 +362,29 @@ function printTextReport(results) {
       `${"  ".repeat(h.level - 1)}h${h.level}: ${h.text.slice(0, 80)}`,
     );
   }
+}
+
+// Elements listed per rule before the rest collapse into "+N more".
+const MAX_LISTED = 5;
+
+// One block per rule, however many elements fail it — a page with 40
+// unlabelled icons reads as one finding ×40, not 40 findings.
+function printGroup(g, label, { withFix = false } = {}) {
+  const n = g.instances.length;
+  console.log(`  [${label}] ${g.message}${n > 1 ? `  ×${n}` : ""}`);
+  const selectors = g.instances
+    .map((v) => v.element?.selector)
+    .filter(Boolean);
+  if (selectors.length) {
+    const more = selectors.length - MAX_LISTED;
+    console.log(
+      `    ${selectors.length > 1 ? "Elements" : "Element"}: ` +
+        selectors.slice(0, MAX_LISTED).join(", ") +
+        (more > 0 ? ` +${more} more` : ""),
+    );
+  }
+  if (g.wcag) console.log(`    WCAG: ${g.wcag}`);
+  if (withFix && g.suggestion)
+    console.log(`    Fix: ${g.suggestion.replace(/\n/g, "\n      ")}`);
+  console.log();
 }

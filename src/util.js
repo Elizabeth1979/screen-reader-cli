@@ -143,3 +143,34 @@ export function collectSelectorValue(value, previous) {
   previous.push(splitSelectorValue(value));
   return previous;
 }
+
+// Collapse per-element findings into one group per rule, sorted most-severe
+// first and, within a severity, most-elements first. aiFixMap is keyed by the
+// finding's index in the original array (how --ai indexes its fixes).
+export function groupByRule(violations, aiFixMap = {}) {
+  const order = { critical: 0, moderate: 1, minor: 2 };
+  const byRule = new Map();
+  violations.forEach((v, i) => {
+    const key = `${v.id}::${v.severity || ""}`;
+    if (!byRule.has(key)) {
+      byRule.set(key, {
+        id: v.id,
+        message: v.message,
+        severity: v.severity,
+        wcag: v.wcag,
+        helpUrl: v.helpUrl,
+        suggestion: v.suggestion,
+        aiFix: null,
+        instances: [],
+      });
+    }
+    const g = byRule.get(key);
+    g.instances.push(v);
+    if (!g.aiFix && aiFixMap[i]) g.aiFix = aiFixMap[i];
+  });
+  return [...byRule.values()].sort(
+    (a, b) =>
+      (order[a.severity] ?? 3) - (order[b.severity] ?? 3) ||
+      b.instances.length - a.instances.length,
+  );
+}

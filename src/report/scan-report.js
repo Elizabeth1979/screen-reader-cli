@@ -1,3 +1,5 @@
+import { groupByRule } from "../util.js";
+
 export function generateScanReport(results, { aiAnalysis, aiMeta } = {}) {
   const severityColor = { critical: "#FF4D4F", moderate: "#FA8C16", minor: "#1890FF" };
   const severityBg = { critical: "rgba(255,77,79,0.08)", moderate: "rgba(250,140,22,0.08)", minor: "rgba(24,144,255,0.08)" };
@@ -23,7 +25,7 @@ export function generateScanReport(results, { aiAnalysis, aiMeta } = {}) {
   // \u2500\u2500 Group violations by rule \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   // 67 rows of the same rule is noise; one card per rule with its elements
   // listed inside is signal.
-  const groups = groupViolations(results.violations, aiFixMap);
+  const groups = groupByRule(results.violations, aiFixMap);
   const groupCount = { critical: 0, moderate: 0, minor: 0 };
   for (const g of groups) groupCount[g.severity]++;
 
@@ -67,7 +69,7 @@ export function generateScanReport(results, { aiAnalysis, aiMeta } = {}) {
     .join("\n");
 
   // Needs-review, grouped the same way (no screenshots captured for these)
-  const reviewGroups = groupViolations(results.needsReview || [], {});
+  const reviewGroups = groupByRule(results.needsReview || [], {});
   const reviewCards = reviewGroups
     .map(
       (g) => `
@@ -919,37 +921,6 @@ export function generateScanReport(results, { aiAnalysis, aiMeta } = {}) {
   </script>
 </body>
 </html>`;
-}
-
-// Collapse per-element findings into one group per rule, sorted most-severe
-// first and, within a severity, most-elements first. aiFixMap is keyed by the
-// finding's index in the original array (how --ai indexes its fixes).
-function groupViolations(violations, aiFixMap) {
-  const order = { critical: 0, moderate: 1, minor: 2 };
-  const byRule = new Map();
-  violations.forEach((v, i) => {
-    const key = `${v.id}::${v.severity || ""}`;
-    if (!byRule.has(key)) {
-      byRule.set(key, {
-        id: v.id,
-        message: v.message,
-        severity: v.severity,
-        wcag: v.wcag,
-        helpUrl: v.helpUrl,
-        suggestion: v.suggestion,
-        aiFix: null,
-        instances: [],
-      });
-    }
-    const g = byRule.get(key);
-    g.instances.push(v);
-    if (!g.aiFix && aiFixMap[i]) g.aiFix = aiFixMap[i];
-  });
-  return [...byRule.values()].sort(
-    (a, b) =>
-      (order[a.severity] ?? 3) - (order[b.severity] ?? 3) ||
-      b.instances.length - a.instances.length,
-  );
 }
 
 function esc(str) {
