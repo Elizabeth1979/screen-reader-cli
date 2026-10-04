@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Announcement Edge Cases</title>
+  <!-- Strict CSP: the scan must still load the virtual screen reader. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'">
+</head>
+<body>
+  <main>
+    <h1>Announcement edge cases</h1>
+    <!-- img read only as part of the button: buttons are one item -->
+    <button><img src="x.png"></button>
+  </main>
+</body>
+</html>

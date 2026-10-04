@@ -6,6 +6,39 @@ Newest entries first.
 
 ---
 
+## 2026-10-04 — Every finding says what the screen reader says
+
+`scan` was axe with a different wrapper: "Buttons must have discernible text"
+is a rule name, and a developer has to imagine what it means for a listener.
+`audit` already knew — it reads that button as just "button" — but the two
+never met. Now each finding carries the phrase:
+
+    Element: body > button  → screen reader says "button"
+
+How: after axe and the photos, the scan walks the page once with the same
+Virtual Screen Reader `audit` uses (its injection moved out of `createBridge`
+into `injectVirtualScreenReader`, shared) and records the first phrase spoken
+on or inside each failing element. It runs last so it cannot change what axe
+saw. Four outcomes, each in `element.announcement`:
+
+- a phrase — what the listener hears there;
+- a phrase plus `announcedWithin` — the element is never reached itself but
+  sits inside something read as one item. An `<img>` with no alt inside a
+  `<button>` first read as "never announced", which was true and misleading:
+  the listener hears the button, nameless *because* of that image;
+- `null` — the walk reached the end and never got there (`aria-hidden`);
+- absent — unknown: a page-level target like `<html>`, whose "first phrase
+  inside" would be the whole page's first phrase, or a walk cut short.
+
+Bounded twice, per the rule for waits in the pipeline: 2,000 steps or 15 s
+inside the page, and a 20 s wall-clock race outside it. Any failure leaves the
+findings without announcements rather than failing the scan. `scan` and the
+dashboard now open their context with `bypassCSP: true`, as `audit` always
+has — the bundle loads as a module and a strict CSP refused it.
+`test/fixtures/announce-edge.html` has a strict CSP and the img-in-button case.
+
+---
+
 ## 2026-10-04 — 0.8.0
 
 Ships the three scan fixes merged today:

@@ -15,6 +15,7 @@ import {
   collectKeyValue,
   collectSelectorValue,
   DEVICE_NAMES,
+  announcementText,
   groupByRule,
   resolveDeviceOptions,
   resolveTarget,
@@ -149,11 +150,15 @@ export function scanCommand() {
         // effect — and it cannot be verified in this suite, which is headless.
         context = await chromium.launchPersistentContext(profileDir, {
           headless: false,
+          bypassCSP: true,
           userAgent: deviceOpts.userAgent,
         });
       } else {
         browser = await chromium.launch({ headless: true });
         context = await browser.newContext({
+          // The virtual screen reader is loaded as a module; a page's CSP
+          // would refuse it and findings would lose their announcements.
+          bypassCSP: true,
           // Defaults to a real Chrome UA, since some sites (e.g.
           // Cloudflare-protected staging environments) block Playwright's
           // headless default. --device / --user-agent override it.
@@ -372,19 +377,38 @@ const MAX_LISTED = 5;
 function printGroup(g, label, { withFix = false } = {}) {
   const n = g.instances.length;
   console.log(`  [${label}] ${g.message}${n > 1 ? `  ×${n}` : ""}`);
-  const selectors = g.instances
-    .map((v) => v.element?.selector)
-    .filter(Boolean);
-  if (selectors.length) {
-    const more = selectors.length - MAX_LISTED;
-    console.log(
-      `    ${selectors.length > 1 ? "Elements" : "Element"}: ` +
-        selectors.slice(0, MAX_LISTED).join(", ") +
-        (more > 0 ? ` +${more} more` : ""),
-    );
+  const els = g.instances.filter((v) => v.element?.selector);
+  if (els.length === 1) {
+    console.log(`    Element: ${describe(els[0].element)}`);
+  } else if (els.length > 1) {
+    const heard = els.some((v) => v.element.announcement !== undefined);
+    if (heard) {
+      // One line each, so every element sits next to what it sounds like.
+      console.log("    Elements:");
+      for (const v of els.slice(0, MAX_LISTED))
+        console.log(`      ${describe(v.element)}`);
+      if (els.length > MAX_LISTED)
+        console.log(`      +${els.length - MAX_LISTED} more`);
+    } else {
+      const more = els.length - MAX_LISTED;
+      console.log(
+        "    Elements: " +
+          els
+            .slice(0, MAX_LISTED)
+            .map((v) => v.element.selector)
+            .join(", ") +
+          (more > 0 ? ` +${more} more` : ""),
+      );
+    }
   }
   if (g.wcag) console.log(`    WCAG: ${g.wcag}`);
   if (withFix && g.suggestion)
     console.log(`    Fix: ${g.suggestion.replace(/\n/g, "\n      ")}`);
   console.log();
+}
+
+// The selector plus what a screen reader user hears there.
+function describe(element) {
+  const heard = announcementText(element);
+  return heard ? `${element.selector}  → ${heard}` : element.selector;
 }

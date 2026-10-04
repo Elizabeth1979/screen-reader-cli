@@ -168,6 +168,30 @@ screenreader scan <url> --ai --model gpt-4o                # Use GPT-4o
 screenreader scan <url> --ai --provider ollama             # Use local model (free)
 ```
 
+#### What the screen reader says
+
+Every finding shows what a screen reader user hears at that element. The
+scan walks the page once with the virtual screen reader, so you hear the
+defect instead of reading a rule name:
+
+```
+[CRITICAL] Buttons must have discernible text
+  Element: body > button  → screen reader says "button"
+
+[CRITICAL] Images must have alternative text
+  Element: img  → screen reader reads it only as part of "button"
+
+[CRITICAL] ARIA hidden element must not be focusable or contain focusable elements
+  Element: div  → screen reader skips it — never announced
+```
+
+The same line appears in the `--visual` report. In `--json` it is
+`element.announcement`: the phrase, or `null` when the screen reader never
+reaches the element, plus `element.announcedWithin: true` when the phrase
+belongs to an ancestor read as one item. Page-level findings (`<html>`) have
+no announcement. The walk is capped at 2,000 steps and 15 seconds; on a page
+bigger than that, elements past the cap simply show no announcement.
+
 #### Regression tests (`--test`)
 
 Writes one Playwright test per axe rule the scan failed. Each test runs that

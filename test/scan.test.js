@@ -8,12 +8,13 @@ import os from "node:os";
 import { chromium } from "playwright";
 import { scan, wcagLabel } from "../src/services/scanner.js";
 import { openAndSettle } from "../src/page-state.js";
-import { splitSelectorValue } from "../src/util.js";
+import { announcementText, splitSelectorValue } from "../src/util.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CLI = path.resolve(__dirname, "../bin/cli.js");
 const CLEAN_FIXTURE = `file://${path.resolve(__dirname, "fixtures/basic.html")}`;
 const VIOLATIONS_FIXTURE = `file://${path.resolve(__dirname, "fixtures/violations.html")}`;
+const ANNOUNCE_FIXTURE = `file://${path.resolve(__dirname, "fixtures/announce-edge.html")}`;
 
 function run(...args) {
   return execFileSync("node", [CLI, ...args], {
@@ -534,5 +535,54 @@ describe("wcagLabel", () => {
     assert.equal(wcagLabel(["wcag2aa", "wcag143"]), "1.4.3 (AA)");
     assert.equal(wcagLabel(["wcag22aa", "wcag258"]), "2.5.8 (AA)");
     assert.equal(wcagLabel(["best-practice"]), "");
+  });
+});
+
+describe("scan — what the screen reader says per finding", () => {
+  const byId = (results, id) =>
+    results.violations.find((v) => v.id === id).element;
+
+  it("records the phrase spoken at each failing element", () => {
+    const results = JSON.parse(run("scan", VIOLATIONS_FIXTURE, "--json"));
+    // The defect, audible: a button with no name is just "button".
+    assert.equal(byId(results, "button-name").announcement, "button");
+    assert.equal(byId(results, "image-alt").announcement, "image");
+    assert.equal(byId(results, "label").announcement, "textbox");
+    // aria-hidden content is never reached: null, not missing.
+    assert.equal(byId(results, "aria-hidden-focus").announcement, null);
+    // A page-level target (<html>) has no meaningful phrase: absent.
+    assert.ok(!("announcement" in byId(results, "html-has-lang")));
+  });
+
+  it("prints it next to the element in the text report", () => {
+    const output = run("scan", VIOLATIONS_FIXTURE);
+    assert.match(output, /body > button {2}→ screen reader says "button"/);
+    assert.match(output, /div {2}→ screen reader skips it — never announced/);
+  });
+
+  it("names the item a child is read within, despite a strict CSP", () => {
+    const results = JSON.parse(run("scan", ANNOUNCE_FIXTURE, "--json"));
+    const img = byId(results, "image-alt");
+    assert.equal(img.announcement, "button");
+    assert.equal(img.announcedWithin, true);
+  });
+});
+
+describe("announcementText", () => {
+  it("words each state", () => {
+    assert.equal(
+      announcementText({ announcement: "button" }),
+      'screen reader says "button"',
+    );
+    assert.equal(
+      announcementText({ announcement: "button", announcedWithin: true }),
+      'screen reader reads it only as part of "button"',
+    );
+    assert.equal(
+      announcementText({ announcement: null }),
+      "screen reader skips it — never announced",
+    );
+    assert.equal(announcementText({}), "");
+    assert.equal(announcementText(undefined), "");
   });
 });
