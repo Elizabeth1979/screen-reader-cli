@@ -203,6 +203,6 @@ export function explainStartFailure(err, env = {}) {
   }
   return (
     `${raw}. The screen reader did not finish starting. ` +
-    `Check that automation is permitted (npx @guidepup/setup).`
+    `Check that automation is permitted (npx @guidepup/setup setup).`
   );
 }

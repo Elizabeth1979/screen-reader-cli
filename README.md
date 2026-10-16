@@ -100,7 +100,7 @@ npm update -g screen-reader-cli     # get the latest
 To use the `live` command with a real screen reader, run the one-time setup:
 
 ```bash
-npx @guidepup/setup
+npx @guidepup/setup setup
 ```
 
 This grants the OS permissions needed for screen reader automation:
@@ -360,7 +360,7 @@ screenreader live read <url> --reader nvda
 screenreader live read <url> --reader voiceover
 ```
 
-Requires one-time setup: `npx @guidepup/setup` (see Install section above).
+Requires one-time setup: `npx @guidepup/setup setup` (see Install section above).
 
 ### `page` — Page navigation
 
