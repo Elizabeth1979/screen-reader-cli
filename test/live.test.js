@@ -260,39 +260,38 @@ describe("compareDirections", () => {
 
 describe("explainStartFailure", () => {
   it("names an unsupported macOS rather than sending people to permissions", async () => {
-    // The upstream complaint (guidepup/guidepup#149) is that the real cause is
-    // buried, so the first hour goes to Accessibility settings that are not
-    // involved. The message has to say so outright.
+    // Guidepup refuses a macOS it has no assets for with "macOS version not
+    // supported", wrapped in "VoiceOver cannot be started". Read plainly, that
+    // sends the first hour to Accessibility settings that are not involved, so
+    // the message has to name the cause outright.
+    const { explainStartFailure } = await import("../src/live-bridge.js");
+    const err = new Error("VoiceOver cannot be started");
+    err.cause = new Error("macOS version not supported: 28");
+    const msg = explainStartFailure(err, { platform: "darwin", release: "28.0.0" });
+    assert.match(msg, /not a permissions problem/i);
+    assert.match(msg, /Darwin 28\.0\.0/);
+    assert.match(msg, /scan|audit/i, "must say what still works");
+  });
+
+  it("still catches a missing launcher binary", async () => {
     const { explainStartFailure } = await import("../src/live-bridge.js");
     const msg = explainStartFailure(
       new Error("VoiceOver cannot be started\nCommand failed: .../VoiceOverStarter: No such file or directory"),
-      45000,
       { platform: "darwin", release: "27.0.0" },
     );
     assert.match(msg, /not a permissions problem/i);
-    assert.match(msg, /guidepup\/issues\/149/);
-    assert.match(msg, /scan and audit need no screen reader/i);
   });
 
-  it("also catches the newer manifest wording", async () => {
-    const { explainStartFailure } = await import("../src/live-bridge.js");
-    const err = new Error("VoiceOver cannot be started");
-    err.cause = new Error("macOS version not supported");
-    assert.match(
-      explainStartFailure(err, 45000, { platform: "darwin", release: "27.0.0" }),
-      /not a permissions problem/i,
-    );
-  });
-
-  it("leaves an ordinary timeout as a timeout", async () => {
+  it("leaves an ordinary timeout as a timeout, pointing at setup", async () => {
     const { explainStartFailure } = await import("../src/live-bridge.js");
     const msg = explainStartFailure(
       new Error("Timed out waiting for VoiceOver to be running"),
-      45000,
       { platform: "darwin", release: "27.0.0" },
     );
-    assert.match(msg, /--start-timeout/);
+    assert.match(msg, /@guidepup\/setup/);
     assert.doesNotMatch(msg, /not a permissions problem/i);
+    // The old advice named --start-timeout, which never reached Guidepup.
+    assert.doesNotMatch(msg, /start-timeout/);
   });
 });
 
@@ -304,28 +303,51 @@ describe("explainStartFailure — platform", () => {
     const { explainStartFailure } = await import("../src/live-bridge.js");
     const msg = explainStartFailure(
       new Error("VoiceOver cannot be started\nCommand failed: .../VoiceOverStarter: No such file or directory"),
-      45000,
       { platform: "linux", release: "6.1.0" },
     );
     assert.doesNotMatch(msg, /not a permissions problem/i);
   });
 });
 
+describe("voiceOverLauncher — the same rule Guidepup uses", () => {
+  it("opens VoiceOver.app from Darwin 27, where VoiceOverStarter is gone", async () => {
+    const { voiceOverLauncher } = await import("../src/live-bridge.js");
+    assert.equal(voiceOverLauncher("27.0.0"), "/System/Library/CoreServices/VoiceOver.app");
+    assert.equal(voiceOverLauncher("28.1.0"), "/System/Library/CoreServices/VoiceOver.app");
+  });
+
+  it("runs VoiceOverStarter before Darwin 27", async () => {
+    const { voiceOverLauncher } = await import("../src/live-bridge.js");
+    assert.match(voiceOverLauncher("25.4.0"), /Contents\/MacOS\/VoiceOverStarter$/);
+  });
+});
+
 describe("preflightLiveMode — check before taking over the machine", () => {
-  it("passes when the launcher VoiceOver needs is present", async () => {
+  it("passes on macOS 27 when VoiceOver.app is there", async () => {
+    // Before Guidepup 0.36 this machine was refused: the check looked for
+    // VoiceOverStarter, which macOS 27 removed, so live mode could never run.
+    const { preflightLiveMode } = await import("../src/live-bridge.js");
+    const checked = [];
+    const r = preflightLiveMode({
+      platform: "darwin",
+      release: "27.0.0",
+      exists: (p) => (checked.push(p), p === "/System/Library/CoreServices/VoiceOver.app"),
+    });
+    assert.equal(r.ok, true);
+    assert.deepEqual(checked, ["/System/Library/CoreServices/VoiceOver.app"]);
+  });
+
+  it("checks VoiceOverStarter on an older macOS", async () => {
     const { preflightLiveMode } = await import("../src/live-bridge.js");
     const r = preflightLiveMode({
       platform: "darwin",
       release: "24.0.0",
-      exists: () => true,
+      exists: (p) => p.endsWith("/VoiceOverStarter"),
     });
     assert.equal(r.ok, true);
   });
 
   it("fails fast when the launcher is missing, before anything starts", async () => {
-    // The condition is checked, not the OS version: when the platform or the
-    // library changes, this resolves itself instead of blocking on a hardcoded
-    // version that has gone stale.
     const { preflightLiveMode } = await import("../src/live-bridge.js");
     const r = preflightLiveMode({
       platform: "darwin",
@@ -334,7 +356,7 @@ describe("preflightLiveMode — check before taking over the machine", () => {
     });
     assert.equal(r.ok, false);
     assert.match(r.reason, /not a permissions problem/i);
-    assert.match(r.reason, /issues\/149/);
+    assert.match(r.reason, /VoiceOver\.app/, "must name the path it looked for");
     assert.match(r.reason, /scan|audit/i, "must say what still works");
   });
 

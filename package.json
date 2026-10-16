@@ -1,6 +1,6 @@
 {
   "name": "screen-reader-cli",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Screen reader testing CLI — scan pages for accessibility violations with axe-core + Virtual Screen Reader, drive real VoiceOver/NVDA, generate regression tests",
   "type": "module",
   "bin": {
@@ -44,7 +44,7 @@
   },
   "homepage": "https://github.com/Elizabeth1979/screen-reader-cli#readme",
   "dependencies": {
-    "@guidepup/guidepup": "^0.24.1",
+    "@guidepup/guidepup": "^0.36.3",
     "@guidepup/virtual-screen-reader": "^0.33.0",
     "axe-core": "^4.11.2",
     "commander": "^13.0.0",

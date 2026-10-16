@@ -6,6 +6,28 @@ Newest entries first.
 
 ---
 
+## 2026-10-16 — 0.12.0: live mode on macOS 27
+
+Live mode could not start VoiceOver on macOS 27. Apple removed the
+`VoiceOverStarter` program that Guidepup, the screen-reader driver, used to
+launch it. Guidepup 0.36 opens `VoiceOver.app` instead on macOS 27
+([guidepup#151](https://github.com/guidepup/guidepup/pull/151)), so this
+release moves to it.
+
+Our own check before live mode starts looked for `VoiceOverStarter` too, so it
+would have kept refusing every macOS 27 machine even with the new driver. It
+now looks for the launcher Guidepup will actually use, picked by the same rule
+Guidepup uses, so the two cannot disagree.
+
+**Removed: `--start-timeout`.** It never did anything. It was handed to
+Guidepup as a setting Guidepup never read, in the old version and the new one.
+The problem it was meant to solve, a cold VoiceOver start taking longer than
+the driver waited, is fixed in Guidepup itself: it now tries twice and waits
+30 seconds each time. A command that still passes the flag gets "unknown
+option" and should drop it.
+
+---
+
 ## 2026-10-04 — 0.11.0
 
 Ships `screenreader mcp`: an MCP server so AI coding assistants can scan a
