@@ -26,6 +26,22 @@ the driver waited, is fixed in Guidepup itself: it now tries twice and waits
 30 seconds each time. A command that still passes the flag gets "unknown
 option" and should drop it.
 
+**The reader now reads the page, not an empty window.** Starting VoiceOver
+through `VoiceOver.app` brings VoiceOver to the front, which takes focus from
+the browser opened just before it. VoiceOver then walked nothing and every
+read came back with 0 announcements. Once the reader is running, the browser
+is brought back to the front. Checked on a Mac with macOS 27: `live read` on
+`test/fixtures/basic.html` reads all 20 items, from the navigation's links to
+the footer.
+
+**Setup has more steps on a current Mac**, and the README now lists them all:
+Full Disk Access for the terminal (VoiceOver's settings live in a protected
+folder that the driver swaps its own into), a one-time download of those
+settings for the macOS version (`npx @guidepup/setup install voiceover`), and
+allowing each "control" prompt on the first run. `@guidepup/setup setup` also
+needs `setup` after it; without it, it prints its help and changes nothing,
+which is what the README used to say to run.
+
 ---
 
 ## 2026-10-04 — 0.11.0

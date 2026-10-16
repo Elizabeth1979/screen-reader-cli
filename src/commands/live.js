@@ -210,7 +210,7 @@ export function liveCommand() {
         : "file://" + path.resolve(url);
 
     await page.goto(target, { waitUntil: "domcontentloaded" });
-    await bridge.start();
+    await bridge.start(page);
 
     const readerLabel = bridge.readerName === "voiceover" ? "VoiceOver" : "NVDA";
     console.log(`${readerLabel} started on: ${target}`);
@@ -269,7 +269,7 @@ export function liveCommand() {
     try {
       await page.goto(target, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(1000);
-      await bridge.start();
+      await bridge.start(page);
 
       const readerLabel0 =
         bridge.readerName === "voiceover" ? "VoiceOver" : "NVDA";
@@ -404,7 +404,7 @@ export function liveCommand() {
     try {
       await page.goto(target, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(1000);
-      await bridge.start();
+      await bridge.start(page);
 
       const entry = await enterWebArea(bridge);
       reportEntry(

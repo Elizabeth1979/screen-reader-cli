@@ -31,6 +31,18 @@ export function detectReader() {
   );
 }
 
+// The bundle ID of the Chromium Playwright launches ("Google Chrome for
+// Testing"); VoiceOver reads the app macOS has in front.
+const PLAYWRIGHT_CHROMIUM_ID = "com.google.chrome.for.testing";
+
+async function bringToFront(name, page) {
+  if (name === "voiceover") {
+    const gp = await import("@guidepup/guidepup");
+    await gp.macOSActivateId(PLAYWRIGHT_CHROMIUM_ID);
+  }
+  await page?.bringToFront();
+}
+
 export async function createLiveBridge(readerName) {
   const name = readerName || detectReader();
   const reader = await loadReader(name);
@@ -42,7 +54,11 @@ export async function createLiveBridge(readerName) {
     // Guidepup owns the wait for the screen reader to come up: since 0.36 it
     // tries twice and waits 30s each time, enough for a cold VoiceOver start.
     // It takes no limit from the caller, so this passes none.
-    async start() {
+    //
+    // Starting VoiceOver brings it to the front (on macOS 27 Guidepup opens
+    // VoiceOver.app), which takes focus from the browser, so the reader would
+    // walk an empty window. Bring the page's browser back once it is running.
+    async start(page) {
       if (!started) {
         try {
           await reader.start();
@@ -53,6 +69,7 @@ export async function createLiveBridge(readerName) {
           await reader.stop().catch(() => {});
           throw new Error(explainStartFailure(err));
         }
+        await bringToFront(name, page);
       }
     },
 

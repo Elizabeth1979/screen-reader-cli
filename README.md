@@ -97,18 +97,30 @@ npm update -g screen-reader-cli     # get the latest
 
 ### Live mode setup (optional — for real screen reader testing)
 
-To use the `live` command with a real screen reader, run the one-time setup:
+The `live` command drives a real screen reader, so the operating system has to
+allow it once per machine. `scan` and `audit` use a virtual screen reader and
+need none of this.
 
-```bash
-npx @guidepup/setup setup
-```
+**macOS (VoiceOver).** In the terminal app you run `screenreader` from:
 
-This grants the OS permissions needed for screen reader automation:
+1. Run `npx @guidepup/setup setup`. When VoiceOver Utility opens, tick
+   **Allow VoiceOver to be controlled with AppleScript** on its General tab.
+   If it then says it was "unable to configure automation permissions" (it
+   needs your password for that part), do steps 2 and 3 by hand.
+2. **System Settings → Privacy & Security → Accessibility:** add your terminal
+   app and switch it on.
+3. **System Settings → Privacy & Security → Full Disk Access:** add your
+   terminal app and switch it on, then quit the terminal and open it again.
+   VoiceOver keeps its settings in a protected folder, and the driver swaps in
+   its own while it runs.
+4. Run `npx @guidepup/setup install voiceover`. It downloads VoiceOver settings
+   made for your macOS version (about 10 MB).
+5. On the first `live` run, macOS asks whether your terminal may control
+   VoiceOver, Google Chrome for Testing and System Events. Allow each one.
+   The run does not wait for you, so if it fails with "AppleEvent timed out"
+   while a prompt is open, allow it and run again.
 
-- **macOS**: Enables VoiceOver's AppleScript API and adds your terminal to Accessibility permissions
-- **Windows**: Configures NVDA for programmatic control
-
-You only need to do this once per machine. The `scan` command (virtual mode) works without this step.
+**Windows (NVDA).** Run `npx @guidepup/setup setup` once.
 
 ## Quick start
 
