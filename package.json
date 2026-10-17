@@ -1,6 +1,6 @@
 {
   "name": "screen-reader-cli",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "Screen reader testing CLI — scan pages for accessibility violations with axe-core + Virtual Screen Reader, drive real VoiceOver/NVDA, generate regression tests",
   "type": "module",
   "bin": {
@@ -11,6 +11,7 @@
   "files": [
     "bin/",
     "src/",
+    "dist/",
     "README.md",
     "LICENSE"
   ],
@@ -18,7 +19,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test --test-concurrency=1 test/update-notice.test.js test/scan.test.js test/commands.test.js test/bridge.test.js test/audit.test.js test/user-agent.test.js test/dependency-resolution.test.js test/daemon.test.js test/live.test.js test/ai-analyzer.test.js test/dashboard.test.js test/report.test.js test/baseline.test.js test/mcp.test.js",
+    "build": "node scripts/build-virtual-screen-reader.mjs",
+    "prepare": "npm run build",
+    "test": "node --test --test-concurrency=1 test/update-notice.test.js test/scan.test.js test/commands.test.js test/bridge.test.js test/audit.test.js test/csp.test.js test/user-agent.test.js test/dependency-resolution.test.js test/daemon.test.js test/live.test.js test/ai-analyzer.test.js test/dashboard.test.js test/report.test.js test/baseline.test.js test/mcp.test.js",
     "test:e2e": "node --test test/e2e.test.js"
   },
   "keywords": [
@@ -45,10 +48,13 @@
   "homepage": "https://github.com/Elizabeth1979/screen-reader-cli#readme",
   "dependencies": {
     "@guidepup/guidepup": "^0.36.3",
-    "@guidepup/virtual-screen-reader": "^0.33.0",
+    "@guidepup/virtual-screen-reader": "0.32.1",
     "axe-core": "^4.11.2",
     "commander": "^13.0.0",
     "playwright": "^1.52.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
 }

@@ -6,6 +6,60 @@ Newest entries first.
 
 ---
 
+## 2026-10-17 — 0.13.0: the page's security policy stays on
+
+A page can tell the browser which scripts it may run, with a
+Content-Security-Policy. A strict one says "none from anywhere". Until now,
+every virtual screen reader command asked the browser to ignore that policy,
+because the reader was loaded as a JavaScript module, and a strict policy
+refuses modules. So on a locked-down site the tool quietly switched the lock
+off, and the page ran with weaker protections than any visitor gets.
+
+Now the lock stays on. Example, a page served with
+`default-src 'none'; script-src 'none'`:
+
+- before (lock left on): `audit` stops at "Failed to fetch dynamically
+  imported module", and `scan` findings lose what the screen reader says;
+- after: `audit` reads "main", "heading, Locked-down page, level 1", the
+  paragraph and "button"; `scan` says `screen reader says "button"` for the
+  nameless button.
+
+How: Guidepup's virtual screen reader is built into one plain script at
+install time (`scripts/build-virtual-screen-reader.mjs`, esbuild,
+`format: "iife"`) and shipped in the package as
+`dist/guidepup-virtual-screen-reader.js`, with Guidepup's MIT licence beside
+it. The CLI hands that script to the browser through the DevTools protocol
+(`page.evaluate(source)`), which a page's policy does not govern. This is how
+Deque's official `@axe-core/playwright` loads axe (`page.evaluate(this.script())`),
+and how our own scan already loaded axe. One loader, `injectVirtualScreenReader`
+in `src/bridge.js`, serves every command: `audit`, `page`, `nav`, `speak`,
+`repl`, `screenshot`, `scan`, the dashboard and the MCP server.
+`test/csp.test.js` serves the strict page over a local HTTP server and checks
+`audit`, `scan` and `--record`; it fails on the old loader.
+
+Also fixed under the same policy: the `--record` overlay drew its box and
+caption with inline `style="…"` markup, which a strict policy drops, so the
+video lost its highlight. It now sets the same styles from script.
+
+**Pinned to Guidepup's virtual screen reader 0.32.1, exactly.** In 0.33.0,
+`start()` opens a lasting user-event session that can break typing in a React
+input afterwards
+([guidepup/virtual-screen-reader#250](https://github.com/guidepup/virtual-screen-reader/issues/250)),
+and this tool reads people's real pages. In 0.32.1 `start()` only sets up the
+container, a page observer and a focus listener; the test suite checks that the
+shipped script never calls `setup(`. The header-inside-a-card fix from
+2026-09-27 is already in 0.32.1 (its test still passes).
+
+What changes for users: pages behave as they do for real visitors. A page whose
+own policy blocks one of its scripts now has that script blocked under the tool
+too, instead of running only during a scan.
+
+For contributors: there is now one build step, `npm run build`. It runs by
+itself on `npm install` (`prepare`) and before `npm publish`, so nobody needs
+to remember it; installing the published package never runs it.
+
+---
+
 ## 2026-10-16 — 0.12.0: live mode on macOS 27
 
 Live mode could not start VoiceOver on macOS 27. Apple removed the
@@ -139,7 +193,7 @@ in the terminal, the `--visual` report and `--json` (`element.announcement`).
 Entry below.
 
 Behaviour to know before upgrading: `scan` and the dashboard now open pages
-with CSP bypassed, as `audit` always has, and each scan adds one virtual
+with CSP bypassed, as `audit` always has (removed in 0.13.0, see that entry), and each scan adds one virtual
 screen reader walk of the page (capped at 2,000 steps / 15 s).
 
 ---
@@ -171,8 +225,9 @@ saw. Four outcomes, each in `element.announcement`:
 Bounded twice, per the rule for waits in the pipeline: 2,000 steps or 15 s
 inside the page, and a 20 s wall-clock race outside it. Any failure leaves the
 findings without announcements rather than failing the scan. `scan` and the
-dashboard now open their context with `bypassCSP: true`, as `audit` always
-has — the bundle loads as a module and a strict CSP refused it.
+dashboard now open their context with Playwright's CSP bypass switched on, as
+`audit` always has — the bundle loads as a module and a strict CSP refused it.
+(0.13.0 loads it as a plain script instead and the bypass is gone.)
 `test/fixtures/announce-edge.html` has a strict CSP and the img-in-button case.
 
 ---
@@ -740,8 +795,9 @@ elements. Changes:
   documented around.
 - **Dogfooding as proof:** the site must pass `--fail-on minor`; the
   publish workflow must pass the full suite. The tool vouches for itself.
-- **Known trade-offs:** `bypassCSP` is required for the virtual screen
-  reader injection (documented in README security notes); `--chrome-profile`
+- **Known trade-offs:** switching off the page's CSP is required for the
+  virtual screen reader injection (documented in README security notes; no
+  longer true from 0.13.0, which loads it as a plain script); `--chrome-profile`
   reuses the real logged-in Chrome profile (only scan trusted URLs).
 
 ### Where things stand at end of session

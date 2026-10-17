@@ -20,8 +20,6 @@ export async function scanUrl(url, { device } = {}) {
   try {
     const context = await browser.newContext({
       ...resolveDeviceOptions({ device }),
-      // Lets the virtual screen reader load, for per-finding announcements.
-      bypassCSP: true,
     });
     const page = await context.newPage();
     await page.goto(resolveTarget(url), {
@@ -367,7 +365,7 @@ async function attachAnnouncements(page, violations) {
       } else if (skippedSet.has(sel)) v.element.announcement = null;
     }
   } catch {
-    // CSP refused the bundle, the walk timed out, or the page navigated
+    // The screen reader failed to start, the walk timed out, or the page navigated
     // away. Findings stand without announcements.
   }
 }

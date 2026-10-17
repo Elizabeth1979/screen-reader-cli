@@ -12,14 +12,37 @@ export function recordVideoOptions(dir, viewport = DEFAULT_VIEWPORT) {
   return { dir, size: viewport };
 }
 
+// Styled through element.style, never a style="" attribute: a page whose
+// Content-Security-Policy refuses inline styles drops the attribute (the
+// overlay would be an invisible, unstyled box), but it does not govern styles
+// set from script.
 export async function attachOverlay(page) {
   await page.evaluate(() => {
     const overlay = document.createElement("div");
     overlay.id = "__sr-record";
     overlay.setAttribute("aria-hidden", "true");
-    overlay.innerHTML =
-      '<div data-box style="position:absolute;border:4px solid #fc0;border-radius:4px;pointer-events:none;z-index:2147483646"></div>' +
-      '<div data-caption style="position:fixed;inset:auto 0 0 0;padding:14px 20px;background:#000;color:#fc0;font:600 20px/1.35 system-ui,sans-serif;border-top:3px solid #fc0;z-index:2147483647"></div>';
+    const box = document.createElement("div");
+    box.setAttribute("data-box", "");
+    Object.assign(box.style, {
+      position: "absolute",
+      border: "4px solid #fc0",
+      borderRadius: "4px",
+      pointerEvents: "none",
+      zIndex: "2147483646",
+    });
+    const caption = document.createElement("div");
+    caption.setAttribute("data-caption", "");
+    Object.assign(caption.style, {
+      position: "fixed",
+      inset: "auto 0 0 0",
+      padding: "14px 20px",
+      background: "#000",
+      color: "#fc0",
+      font: "600 20px/1.35 system-ui,sans-serif",
+      borderTop: "3px solid #fc0",
+      zIndex: "2147483647",
+    });
+    overlay.append(box, caption);
     document.documentElement.appendChild(overlay);
   });
 }

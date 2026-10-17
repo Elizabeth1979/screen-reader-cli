@@ -1,29 +1,44 @@
 import fs from "node:fs";
-import {
-  resolveBundledAsset,
-  resolveDeviceOptions,
-  resolveTarget,
-} from "./util.js";
+import { resolveDeviceOptions, resolveTarget } from "./util.js";
 
-// Read the VSR browser bundle once at module load time
-const VSR_BUNDLE_PATH = resolveBundledAsset(
-  "@guidepup/virtual-screen-reader/browser.js",
+// Guidepup's virtual screen reader, built as one plain script by
+// scripts/build-virtual-screen-reader.mjs (`npm run build`, run by `prepare`)
+// and shipped in the package. Read once, on first use, so `--help` still works
+// in a checkout where it has not been built.
+const VSR_SCRIPT_URL = new URL(
+  "../dist/guidepup-virtual-screen-reader.js",
+  import.meta.url,
 );
-const VSR_BUNDLE = fs.readFileSync(VSR_BUNDLE_PATH, "utf-8");
+// Must match GLOBAL_NAME in the build script.
+const VSR_GLOBAL = "__srCliGuidepupVirtualScreenReader";
+let vsrScript = null;
+function readVirtualScreenReader() {
+  if (vsrScript === null) {
+    try {
+      vsrScript = fs.readFileSync(VSR_SCRIPT_URL, "utf-8");
+    } catch (err) {
+      if (err.code !== "ENOENT") throw err;
+      throw new Error(
+        "The virtual screen reader has not been built. Run `npm install` " +
+          "(or `npm run build`) in this checkout.",
+      );
+    }
+  }
+  return vsrScript;
+}
 
-// Load the Virtual Screen Reader into the page as window.__vsr. Imported as an
-// ESM module from a blob URL, so the page's CSP must be bypassed
-// (bypassCSP: true on the context) or the import is refused.
+// Load the Virtual Screen Reader into the page as window.__vsr — the one
+// loader every command uses. The plain script is evaluated over the DevTools
+// protocol, which a page's Content-Security-Policy does not govern, so it runs
+// on a page that forbids every script while the page's own policy stays on.
+// Same approach as Deque's official @axe-core/playwright, which loads axe with
+// `page.evaluate(this.script())` (and as runAxe in services/scanner.js).
 export async function injectVirtualScreenReader(page) {
-  await page.evaluate(async (bundleSource) => {
-    if (window.__vsrLoaded) return;
-    const blob = new Blob([bundleSource], { type: "application/javascript" });
-    const blobUrl = URL.createObjectURL(blob);
-    const module = await import(blobUrl);
-    URL.revokeObjectURL(blobUrl);
-    window.__vsr = module.virtual;
-    window.__vsrLoaded = true;
-  }, VSR_BUNDLE);
+  if (await page.evaluate(() => Boolean(window.__vsr))) return;
+  await page.evaluate(readVirtualScreenReader());
+  await page.evaluate((name) => {
+    window.__vsr = window[name].virtual;
+  }, VSR_GLOBAL);
 }
 
 export async function createBridge(browser, opts = {}) {
@@ -31,7 +46,6 @@ export async function createBridge(browser, opts = {}) {
   // desktop user agent: the traversal comes back clean because the mobile
   // branch never rendered. `opts.device` / `opts.userAgent` override it.
   const context = await browser.newContext({
-    bypassCSP: true,
     ...resolveDeviceOptions(opts),
     ...(opts.recordVideo ? { recordVideo: opts.recordVideo } : {}),
   });
