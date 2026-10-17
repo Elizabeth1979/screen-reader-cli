@@ -18,7 +18,7 @@ const require = createRequire(import.meta.url);
  *
  * Node's own resolver knows where the file landed in every one of those
  * layouts, so ask it instead of guessing. Passing a package's public entry
- * point ("@guidepup/virtual-screen-reader/browser.js") rather than an internal
+ * point ("axe-core/axe.min.js") rather than an internal
  * build path also means a dependency reorganising its own lib/ directory
  * cannot break us.
  */

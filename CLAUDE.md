@@ -1,15 +1,22 @@
 # screen-reader-cli — project memory
 
 CLI for screen-reader accessibility testing. Three engines behind one
-binary (`bin/cli.js`, commander, pure ESM, no build step):
+binary (`bin/cli.js`, commander, pure ESM; one build step, `npm run build`,
+run by `prepare` on `npm install`):
 
 1. **scan** (`src/commands/scan.js` + `src/services/scanner.js`) — Playwright
    headless Chromium + axe-core + structure extraction → text/JSON/HTML
    report, generated tests, AI analysis. Detection is **axe-only**; rule ids
    in reports are axe ids (`image-alt`, `heading-order`, …).
 2. **virtual** (`page`/`nav`/`speak`/`audit`/`repl` via `src/bridge.js`) —
-   Virtual Screen Reader bundle injected into the page (`bypassCSP: true`
-   is required for this).
+   Guidepup's Virtual Screen Reader, built into `dist/` as one plain script
+   (`scripts/build-virtual-screen-reader.mjs`) and evaluated into the page by
+   `injectVirtualScreenReader` — the one loader; every command goes through
+   it. Over the DevTools protocol, like `@axe-core/playwright` loads axe, so
+   it runs on pages whose CSP forbids scripts. Never switch the page's CSP
+   off to make it load. Pinned to exactly 0.32.1: 0.33.0's `start()` opens a
+   user-event session that can break typing in a React input
+   (guidepup/virtual-screen-reader#250).
 3. **live** (`src/live-bridge.js`) — Guidepup drives VoiceOver (macOS) /
    NVDA (Windows). Throws on Linux by design.
 

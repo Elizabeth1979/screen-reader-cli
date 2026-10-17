@@ -16,3 +16,6 @@ a11y-regression.test.js
 .DS_Store
 .vscode/
 .idea/
+
+# Built by scripts/build-virtual-screen-reader.mjs (npm run build)
+dist/

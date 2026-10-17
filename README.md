@@ -587,10 +587,11 @@ The Virtual Screen Reader implements the same [W3C accessibility specifications]
   logged-in sessions included. Only use it against URLs you trust (your own
   staging environments); scanning an untrusted site with it exposes your
   authenticated sessions to that site.
-- **Virtual mode disables the target page's Content-Security-Policy**
-  (`bypassCSP`) so the Virtual Screen Reader bundle can be injected. This is
-  required for the tool to work on CSP-strict sites, but it means the page runs
-  with weaker protections during the scan — again, point it at pages you trust.
+- **The target page's Content-Security-Policy stays on.** The Virtual Screen
+  Reader is loaded as one plain script over the browser's DevTools protocol,
+  the way Deque's `@axe-core/playwright` loads axe, which a page's policy does
+  not govern — so it works on pages that forbid every script, and the page
+  runs with all of its own protections.
 - AI analysis (`--ai`) sends scan results (violation messages, selectors, page
   title/URL) to the provider you select. Use `--provider ollama` to keep
   everything local.

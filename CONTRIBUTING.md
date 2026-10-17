@@ -42,7 +42,9 @@ the one-time `npx @guidepup/setup`.
 
 ## Guidelines
 
-- Keep the code style of the surrounding files (ES modules, no build step).
+- Keep the code style of the surrounding files (ES modules). The one build
+  step, `npm run build`, bundles Guidepup's virtual screen reader into `dist/`
+  and runs by itself on `npm install`.
 - Add or update a test for behavior changes — `test/scan.test.js` shows the
   pattern of invoking the CLI as a subprocess against a fixture.
 - Never build a path into `node_modules` by hand. Use `resolveBundledAsset()`

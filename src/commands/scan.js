@@ -173,15 +173,11 @@ export function scanCommand() {
         // effect — and it cannot be verified in this suite, which is headless.
         context = await chromium.launchPersistentContext(profileDir, {
           headless: false,
-          bypassCSP: true,
           userAgent: deviceOpts.userAgent,
         });
       } else {
         browser = await chromium.launch({ headless: true });
         context = await browser.newContext({
-          // The virtual screen reader is loaded as a module; a page's CSP
-          // would refuse it and findings would lose their announcements.
-          bypassCSP: true,
           // Defaults to a real Chrome UA, since some sites (e.g.
           // Cloudflare-protected staging environments) block Playwright's
           // headless default. --device / --user-agent override it.

@@ -11,11 +11,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(__dirname, "..");
 
 // Every dependency file we read off disk at startup. Add to this list rather
-// than reaching into node_modules from a new module.
-const BUNDLED_ASSETS = [
-  "@guidepup/virtual-screen-reader/browser.js",
-  "axe-core/axe.min.js",
-];
+// than reaching into node_modules from a new module. (The virtual screen
+// reader is not one: it is built into dist/ and shipped with this package.)
+const BUNDLED_ASSETS = ["axe-core/axe.min.js"];
 
 describe("bundled asset resolution", () => {
   for (const specifier of BUNDLED_ASSETS) {
@@ -106,7 +104,7 @@ describe("the CLI runs when dependencies are hoisted above it", () => {
     // hide the very layout this test exists to create.
     const pkgDir = path.join(sharedModules, "screen-reader-cli");
     fs.mkdirSync(pkgDir);
-    for (const item of ["bin", "src", "package.json"]) {
+    for (const item of ["bin", "src", "dist", "package.json"]) {
       fs.cpSync(path.join(REPO, item), path.join(pkgDir, item), {
         recursive: true,
       });
