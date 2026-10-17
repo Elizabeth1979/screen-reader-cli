@@ -17,10 +17,11 @@ skills/claude-code/
 
 ## Install
 
-Prerequisite: `screen-reader-cli` itself must be installed and on your `PATH`. From the repo root:
+Prerequisite: `screen-reader-cli` itself must be installed and on your `PATH`:
 
 ```bash
-npm link
+npm install -g screen-reader-cli
+npx playwright install chromium   # one-time browser download
 ```
 
 Then copy the skill and slash command into your Claude Code config:

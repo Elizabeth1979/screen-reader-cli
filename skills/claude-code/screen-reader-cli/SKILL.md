@@ -13,7 +13,7 @@ For full CLI documentation see the README: https://github.com/Elizabeth1979/scre
 
 1. `command -v screenreader` — if missing, stop and tell the user:
 
-   > screen-reader-cli is not on PATH. Install it from a clone of the repo with `npm link` (or `npm install -g screen-reader-cli` once published). Full instructions: https://github.com/Elizabeth1979/screen-reader-cli#install.
+   > screen-reader-cli is not on PATH. Install it with `npm install -g screen-reader-cli`, then `npx playwright install chromium`. Full instructions: https://github.com/Elizabeth1979/screen-reader-cli#install.
 
 2. If the URL is on `localhost:6006`, check Storybook is up with `curl -sf -o /dev/null http://localhost:6006/`. If not, tell the user Storybook isn't running and stop. Don't try to start it — the user knows where their Storybook lives.
 

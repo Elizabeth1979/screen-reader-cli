@@ -40,33 +40,15 @@ default; `sr <subcommand>` forwards to the CLI.
 - Verify docs page after editing it: `node bin/cli.js scan docs/index.html
 --fail-on minor` must exit 0 — the site advertises that it passes.
 
-## Contributing from the work machine
+## Contributing
 
-Work here goes **fork → branch → PR**, never a direct push to `main`, even
-though this is a solo repo: the contributor seat is deliberate (see
-"Produce here, consume elsewhere" below). The clone at `~/forks/screen-reader-cli`
-is permanent — do not delete it after a PR; the repo is under a megabyte and
-re-cloning costs a Playwright browser download every time.
-
-One command does the push and the PR:
-
-```bash
-bash ~/elli-vault-melio/Scripts/screen-reader-cli/contribute-pr.sh "<title>" <body.md>
-```
-
-**No `gh auth switch`, ever.** The fork is owned by the default gh account, so
-pushing to it and opening the PR both work as-is. `gh auth switch` is global —
-switch and forget to switch back, and unrelated work in other sessions starts
-failing in a way that looks like a broken token. Commit authorship is separate
-and already correct: the clone is configured with the personal email, so commits
-stay personal whoever pushes.
+Every change goes **branch → PR**, never a direct push to `main`.
 
 ## Releasing
 
 Version bump in package.json → merge. That's all: `publish.yml` runs on every
 push to main and publishes by itself when the version isn't on npm yet (other
-merges skip in seconds), then tags `vX.Y.Z`. Never tell the maintainer to run
-it by hand. The manual "Run workflow" button and GitHub Releases are only for
+merges skip in seconds), then tags `vX.Y.Z`. Never run it by hand. The manual "Run workflow" button and GitHub Releases are only for
 re-running a failed publish. Authenticates with npm trusted
 publishing (OIDC), so there is no token to store or renew; the trusted
 publisher is set on npmjs.com (package Settings → Trusted publisher →
@@ -115,33 +97,10 @@ font Atkinson Hyperlegible; must keep passing `--fail-on minor`.
   `npm pack --dry-run` when adding top-level files.
 - History and rationale: **docs/DEVLOG.md** (append new entries, newest
   first).
-- **Bugs found while using the tool elsewhere → open a GitHub issue here, do
-  not fix in place.** The tool is most often exercised from other contexts
-  (e.g. QA'ing a product on the work machine), where a fix can't be properly
-  tested — live-mode work in particular needs VoiceOver to take over the
-  machine for minutes per run. File an issue with the root cause and the
+- **Bugs found while using the tool in another project → open a GitHub issue
+  here, do not fix in place.** A fix can't be properly tested from inside
+  another project — live-mode work in particular needs VoiceOver to take over
+  the machine for minutes per run. File an issue with the root cause and the
   proposed fix written into it (`gh issue create`), then implement in a
   dedicated session here. A PR is for when the code already exists and is
   testable; an issue is for when the diagnosis is ahead of the test loop.
-- **Produce here, consume elsewhere — deliberate separation.** This repo is
-  maintained/published from Elizabeth's personal `Elizabeth1979` account. On
-  her work machine she _consumes_ the tool as a plain user to QA a
-  product there — the intended consume path there is the **published npx / npm
-  package**, not a linked dev clone, so she dogfoods the exact artifact any
-  dev would install. (As of 2026-07-26 the work machine is still on an
-  `npm link` clone because the tool is under active development — fast
-  iteration beats dogfooding until it stabilizes; flip to the package later.)
-  Keep work identity off this repo — it stays a personal asset.
-
-## Working with the maintainer
-
-Elizabeth (owner) prefers plain-language, example-first explanations over
-code dumps and long technical summaries — short cards, before/after
-examples, one idea at a time. When summarizing work, explain what a change
-means for users, not just what the diff does.
-
-Show the tool working, don't only report its result. A screenshot for how a
-page looks; a video for anything that happens over time (keyboard tab stops,
-the screen reader reading the page, clicks and state changes) — use
-`audit --record <file>` for screen-reader runs. Send them as you go, and say
-which page or file you are on and what you are doing.
