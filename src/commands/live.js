@@ -12,12 +12,6 @@ function readerOption(cmd) {
     .option(
       "--reader <name>",
       "Screen reader to use: voiceover or nvda (auto-detects OS by default)"
-    )
-    .option(
-      "--start-timeout <ms>",
-      "How long to wait for the screen reader to finish starting. Guidepup's " +
-        "own default is 10s, which a cold VoiceOver start regularly exceeds.",
-      "45000"
     );
 }
 
@@ -216,7 +210,7 @@ export function liveCommand() {
         : "file://" + path.resolve(url);
 
     await page.goto(target, { waitUntil: "domcontentloaded" });
-    await bridge.start({ timeout: parseInt(opts.startTimeout, 10) });
+    await bridge.start(page);
 
     const readerLabel = bridge.readerName === "voiceover" ? "VoiceOver" : "NVDA";
     console.log(`${readerLabel} started on: ${target}`);
@@ -275,7 +269,7 @@ export function liveCommand() {
     try {
       await page.goto(target, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(1000);
-      await bridge.start({ timeout: parseInt(opts.startTimeout, 10) });
+      await bridge.start(page);
 
       const readerLabel0 =
         bridge.readerName === "voiceover" ? "VoiceOver" : "NVDA";
@@ -410,7 +404,7 @@ export function liveCommand() {
     try {
       await page.goto(target, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(1000);
-      await bridge.start({ timeout: parseInt(opts.startTimeout, 10) });
+      await bridge.start(page);
 
       const entry = await enterWebArea(bridge);
       reportEntry(
