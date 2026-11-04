@@ -303,6 +303,20 @@ export function explainStartFailure(err, env = {}) {
     // Most often the per-macOS settings file was never downloaded (the
     // preflight catches that case first). Name the download, not automation.
     const guidepup = "guidepup" in env ? env.guidepup : loadGuidepupManifest();
+    // Guidepup nests the real reason (an EPERM from symlink) a level deeper.
+    const chain = [];
+    for (let e = err; e && chain.length < 5; e = e.cause)
+      chain.push(String(e.message ?? e));
+    if (chain.some((m) => /EPERM|operation not permitted/i.test(m))) {
+      return (
+        `${raw}\n\n` +
+        `macOS blocked the screen-reader driver from writing into VoiceOver's\n` +
+        `settings folder (~/Library/Group Containers/group.com.apple.VoiceOver).\n` +
+        `This is macOS privacy protection, not a missing download. Give Full Disk\n` +
+        `Access to the app this terminal runs in (System Settings > Privacy &\n` +
+        `Security > Full Disk Access), quit and reopen that app, then run again.`
+      );
+    }
     return (
       `${raw}\n\n` +
       `The screen-reader driver could not load its VoiceOver settings file.\n` +

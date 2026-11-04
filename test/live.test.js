@@ -531,4 +531,24 @@ describe("explainStartFailure — preferences mount", () => {
     );
     assert.doesNotMatch(msg, /automation is permitted/);
   });
+
+  it("names Full Disk Access when macOS blocks the settings folder", async () => {
+    // Real chain on macOS 27: start -> mount -> EPERM symlink into
+    // ~/Library/Group Containers/group.com.apple.VoiceOver (privacy protection).
+    const { explainStartFailure } = await import("../src/live-bridge.js");
+    const eperm = new Error(
+      "EPERM: operation not permitted, symlink '/Volumes/...' -> '...portable.scrd'",
+    );
+    const mount = new Error("Failed to mount Guidepup preferences", {
+      cause: eperm,
+    });
+    const err = new Error("VoiceOver cannot be started", { cause: mount });
+    const msg = explainStartFailure(err, {
+      platform: "darwin",
+      release: "27.2.0",
+      guidepup: null,
+    });
+    assert.match(msg, /Full Disk Access/);
+    assert.doesNotMatch(msg, /setup install/);
+  });
 });
