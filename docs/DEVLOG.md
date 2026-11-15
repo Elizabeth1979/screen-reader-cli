@@ -6,7 +6,7 @@ Newest entries first.
 
 ---
 
-## 2026-11-05 — live mode names the missing VoiceOver settings download
+## 2026-11-05 — 0.13.1: live mode names the missing VoiceOver settings download
 
 From Guidepup 0.36, VoiceOver starts with a settings file (a disk image) that
 `npx @guidepup/setup install` downloads, one per macOS version. On a Mac that
