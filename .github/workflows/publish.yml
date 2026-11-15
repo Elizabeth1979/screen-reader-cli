@@ -63,7 +63,9 @@ jobs:
   publish:
     needs: check
     if: needs.check.outputs.publish == 'true'
-    runs-on: ubuntu-latest
+    # Pinned for the same reason as ci.yml: Playwright cannot install
+    # Chromium on ubuntu-latest (26.04). Unpin with the Playwright upgrade.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
