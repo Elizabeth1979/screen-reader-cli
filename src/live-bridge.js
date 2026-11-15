@@ -1,5 +1,9 @@
 import fs from "node:fs";
 import os from "node:os";
+import path from "node:path";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 
 /**
  * Live screen reader bridge — drives real VoiceOver (macOS) or NVDA (Windows)
@@ -27,7 +31,7 @@ export function detectReader() {
   if (process.platform === "darwin") return "voiceover";
   if (process.platform === "win32") return "nvda";
   throw new Error(
-    `Unsupported platform: ${process.platform}. Live mode requires macOS (VoiceOver) or Windows (NVDA).`
+    `Unsupported platform: ${process.platform}. Live mode requires macOS (VoiceOver) or Windows (NVDA).`,
   );
 }
 
@@ -116,7 +120,7 @@ export async function createLiveBridge(readerName) {
       const command = reader.keyboardCommands[commandKey];
       if (!command) {
         throw new Error(
-          `Unknown command: ${commandKey}. Available: ${Object.keys(reader.keyboardCommands).join(", ")}`
+          `Unknown command: ${commandKey}. Available: ${Object.keys(reader.keyboardCommands).join(", ")}`,
         );
       }
       await reader.perform(command);
@@ -174,20 +178,107 @@ export function preflightLiveMode({
   platform = process.platform,
   release = os.release(),
   exists = (p) => fs.existsSync(p),
+  guidepup = loadGuidepupManifest(),
+  cachePath = guidepupCachePath(),
 } = {}) {
   if (platform !== "darwin") return { ok: true };
   const launcher = voiceOverLauncher(release);
-  if (exists(launcher)) return { ok: true };
-  return {
-    ok: false,
-    reason:
-      `Live mode cannot start VoiceOver on this machine (Darwin ${release}).\n\n` +
-      `This is not a permissions problem. The screen-reader driver launches\n` +
-      `VoiceOver through a path that does not exist here:\n` +
-      `  ${launcher}\n\n` +
-      `Report it with that path: https://github.com/Elizabeth1979/screen-reader-cli/issues\n\n` +
-      STILL_WORKS,
-  };
+  if (!exists(launcher)) {
+    return {
+      ok: false,
+      reason:
+        `Live mode cannot start VoiceOver on this machine (Darwin ${release}).\n\n` +
+        `This is not a permissions problem. The screen-reader driver launches\n` +
+        `VoiceOver through a path that does not exist here:\n` +
+        `  ${launcher}\n\n` +
+        `Report it with that path: https://github.com/Elizabeth1979/screen-reader-cli/issues\n\n` +
+        STILL_WORKS,
+    };
+  }
+  const prefs = voiceOverPreferencesFile({ release, guidepup, cachePath });
+  if (prefs && !exists(prefs)) {
+    return {
+      ok: false,
+      reason:
+        `Live mode cannot start VoiceOver yet: a one-time download is missing.\n\n` +
+        `The screen-reader driver (Guidepup) needs its VoiceOver settings file\n` +
+        `for this macOS (Darwin ${release}), and it is not on this machine:\n` +
+        `  ${prefs}\n\n` +
+        `This is not a permissions problem. Download it with:\n` +
+        `  ${installCommand(guidepup)}\n\n` +
+        STILL_WORKS,
+    };
+  }
+  return { ok: true };
+}
+
+// From Guidepup 0.36, VoiceOver starts with a settings file (a disk image) that
+// `@guidepup/setup install` downloads into a cache, one per macOS version. Its
+// absence surfaces only as "Failed to mount Guidepup preferences", which the
+// start wrapper below used to send to automation permissions. The rule here
+// copies Guidepup's own (resolveCachePath + getManifestAsset + resolveDmgPath),
+// read from the manifest Guidepup ships, so the two cannot disagree.
+
+/** Guidepup's manifest and where it lives, or null for a Guidepup without one. */
+export function loadGuidepupManifest() {
+  try {
+    const manifestPath = require.resolve("@guidepup/guidepup/manifest.json");
+    return {
+      manifestPath,
+      manifest: JSON.parse(fs.readFileSync(manifestPath, "utf8")),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Where Guidepup caches screen-reader assets on macOS. */
+export function guidepupCachePath(env = process.env, home = os.homedir()) {
+  return env.GUIDEPUP_SCREEN_READERS_PATH
+    ? path.resolve(env.GUIDEPUP_SCREEN_READERS_PATH)
+    : path.resolve(home, "Library", "Caches", "guidepup");
+}
+
+/**
+ * The settings file Guidepup will mount on this Darwin release, or null when
+ * there is nothing to check (an older Guidepup, or a release its manifest does
+ * not list — Guidepup then refuses on its own with "not supported").
+ */
+export function voiceOverPreferencesFile({ release, guidepup, cachePath }) {
+  const assets = guidepup?.manifest?.screenReaders?.find(
+    ({ id }) => id === "voiceover",
+  )?.assets;
+  const major = release.split(".", 1)[0];
+  const asset = assets?.find(
+    ({ platformVersion }) => platformVersion === major,
+  );
+  if (!asset) return null;
+  return path.join(
+    cachePath,
+    "voiceover",
+    asset.platformVersion,
+    asset.version,
+    asset.asset,
+  );
+}
+
+/**
+ * The download command. `@guidepup/setup install` reads the manifest of the
+ * Guidepup it finds from the folder it runs in, so it must run from the folder
+ * that holds this tool's Guidepup — run anywhere else, it fetches files for a
+ * different Guidepup, or none.
+ */
+export function installCommand(guidepup) {
+  const base = "npx @guidepup/setup install voiceover";
+  if (!guidepup?.manifestPath) return base;
+  // .../node_modules/@guidepup/guidepup/manifest.json → the folder above node_modules
+  const root = path.resolve(
+    path.dirname(guidepup.manifestPath),
+    "..",
+    "..",
+    "..",
+  );
+  return `cd "${root}" && ${base}`;
 }
 
 /**
@@ -205,6 +296,36 @@ export function explainStartFailure(err, env = {}) {
   const platform = env.platform ?? process.platform;
   const release = env.release ?? os.release();
   const raw = [err?.message, err?.cause?.message].filter(Boolean).join(" — ");
+  if (
+    platform === "darwin" &&
+    /Failed to mount Guidepup preferences/i.test(raw)
+  ) {
+    // Most often the per-macOS settings file was never downloaded (the
+    // preflight catches that case first). Name the download, not automation.
+    const guidepup = "guidepup" in env ? env.guidepup : loadGuidepupManifest();
+    // Guidepup nests the real reason (an EPERM from symlink) a level deeper.
+    const chain = [];
+    for (let e = err; e && chain.length < 5; e = e.cause)
+      chain.push(String(e.message ?? e));
+    if (chain.some((m) => /EPERM|operation not permitted/i.test(m))) {
+      return (
+        `${raw}\n\n` +
+        `macOS blocked the screen-reader driver from writing into VoiceOver's\n` +
+        `settings folder (~/Library/Group Containers/group.com.apple.VoiceOver).\n` +
+        `This is macOS privacy protection, not a missing download. Give Full Disk\n` +
+        `Access to the app this terminal runs in (System Settings > Privacy &\n` +
+        `Security > Full Disk Access), quit and reopen that app, then run again.`
+      );
+    }
+    return (
+      `${raw}\n\n` +
+      `The screen-reader driver could not load its VoiceOver settings file.\n` +
+      `Download it for this macOS (Darwin ${release}) with:\n` +
+      `  ${installCommand(guidepup)}\n` +
+      `If that file is already there, the terminal may be blocked from VoiceOver's\n` +
+      `settings folder (~/Library/Group Containers/group.com.apple.VoiceOver).`
+    );
+  }
   const unsupported = /not supported|no such file|VoiceOverStarter/i.test(raw);
   if (platform === "darwin" && unsupported) {
     // Deliberately no Darwin-to-macOS conversion: the offset changed when Apple

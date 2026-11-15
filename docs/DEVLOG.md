@@ -6,6 +6,23 @@ Newest entries first.
 
 ---
 
+## 2026-11-05 — live mode names the missing VoiceOver settings download
+
+From Guidepup 0.36, VoiceOver starts with a settings file (a disk image) that
+`npx @guidepup/setup install` downloads, one per macOS version. On a Mac that
+moved to macOS 27 the cache still held only the macOS 26 file, so Guidepup
+stopped with "Failed to mount Guidepup preferences" — and our message sent
+people to automation permissions, which were not involved. An afternoon went
+to `@guidepup/setup setup` and privacy settings.
+
+Now the pre-check looks for the exact file Guidepup will mount (same rule as
+Guidepup, read from the manifest it ships) and, if it is missing, prints the
+download command with the `cd` it needs: `setup install` reads the manifest of
+whichever Guidepup it finds from the folder it runs in, so run anywhere else
+it downloads the wrong files or none.
+
+---
+
 ## 2026-10-17 — 0.13.0: the page's security policy stays on
 
 A page can tell the browser which scripts it may run, with a

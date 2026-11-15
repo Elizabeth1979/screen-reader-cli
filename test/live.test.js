@@ -17,7 +17,10 @@ function run(...args) {
 describe("live command — CLI registration", () => {
   it("shows help for live command", () => {
     const output = run("live", "--help");
-    assert.ok(output.includes("Drive a real screen reader"), "should show live description");
+    assert.ok(
+      output.includes("Drive a real screen reader"),
+      "should show live description",
+    );
     assert.ok(output.includes("open"), "should list open subcommand");
     assert.ok(output.includes("read"), "should list read subcommand");
     assert.ok(output.includes("test"), "should list test subcommand");
@@ -66,7 +69,7 @@ describe("live-bridge module", () => {
     await assert.rejects(
       () => createLiveBridge("jaws"),
       /Unknown screen reader/,
-      "should reject unsupported reader"
+      "should reject unsupported reader",
     );
   });
 });
@@ -122,11 +125,19 @@ describe("enterWebArea", () => {
     // The dangerous case: VoiceOver was already inside the page, so these are
     // real content. Discarding them would be the very bug being fixed.
     const { enterWebArea } = await import("../src/commands/live.js");
-    const pageContent = ["heading level 1, Test page", "list 2 items", "First item"];
+    const pageContent = [
+      "heading level 1, Test page",
+      "list 2 items",
+      "First item",
+    ];
     const b = fakeBridge("voiceover", pageContent);
     const r = await enterWebArea(b);
     assert.equal(r.entered, false);
-    assert.equal(b.calls.interact, 0, "must not interact when no boundary was found");
+    assert.equal(
+      b.calls.interact,
+      0,
+      "must not interact when no boundary was found",
+    );
     assert.deepEqual(r.skipped, pageContent, "content is returned, not lost");
   });
 
@@ -209,10 +220,19 @@ describe("walkBackward", () => {
     const { walkBackward } = await import("../src/commands/live.js");
     const b = directionalBridge(
       [],
-      ["c", "b", "a", "Test page web content. You are currently on a web content"],
+      [
+        "c",
+        "b",
+        "a",
+        "Test page web content. You are currently on a web content",
+      ],
     );
     const r = await walkBackward(b, { maxSteps: 50 });
-    assert.deepEqual(r.phrases, ["c", "b", "a"], "browser chrome is not part of the page log");
+    assert.deepEqual(
+      r.phrases,
+      ["c", "b", "a"],
+      "browser chrome is not part of the page log",
+    );
     assert.match(r.reason, /web area|boundary/i);
   });
 
@@ -251,7 +271,9 @@ describe("compareDirections", () => {
     const { compareDirections } = await import("../src/commands/live.js");
     const r = compareDirections(
       ["list 2 items. You are currently on a list, inside of web content."],
-      ["list 2 items. To move between items in this list, press Control-Option-Right Arrow."],
+      [
+        "list 2 items. To move between items in this list, press Control-Option-Right Arrow.",
+      ],
     );
     assert.equal(r.onlyForward.length, 0);
     assert.equal(r.onlyBackward.length, 0);
@@ -267,7 +289,10 @@ describe("explainStartFailure", () => {
     const { explainStartFailure } = await import("../src/live-bridge.js");
     const err = new Error("VoiceOver cannot be started");
     err.cause = new Error("macOS version not supported: 28");
-    const msg = explainStartFailure(err, { platform: "darwin", release: "28.0.0" });
+    const msg = explainStartFailure(err, {
+      platform: "darwin",
+      release: "28.0.0",
+    });
     assert.match(msg, /not a permissions problem/i);
     assert.match(msg, /Darwin 28\.0\.0/);
     assert.match(msg, /scan|audit/i, "must say what still works");
@@ -276,7 +301,9 @@ describe("explainStartFailure", () => {
   it("still catches a missing launcher binary", async () => {
     const { explainStartFailure } = await import("../src/live-bridge.js");
     const msg = explainStartFailure(
-      new Error("VoiceOver cannot be started\nCommand failed: .../VoiceOverStarter: No such file or directory"),
+      new Error(
+        "VoiceOver cannot be started\nCommand failed: .../VoiceOverStarter: No such file or directory",
+      ),
       { platform: "darwin", release: "27.0.0" },
     );
     assert.match(msg, /not a permissions problem/i);
@@ -302,7 +329,9 @@ describe("explainStartFailure — platform", () => {
     // and the tests themselves failed the moment CI ran them.
     const { explainStartFailure } = await import("../src/live-bridge.js");
     const msg = explainStartFailure(
-      new Error("VoiceOver cannot be started\nCommand failed: .../VoiceOverStarter: No such file or directory"),
+      new Error(
+        "VoiceOver cannot be started\nCommand failed: .../VoiceOverStarter: No such file or directory",
+      ),
       { platform: "linux", release: "6.1.0" },
     );
     assert.doesNotMatch(msg, /not a permissions problem/i);
@@ -312,13 +341,22 @@ describe("explainStartFailure — platform", () => {
 describe("voiceOverLauncher — the same rule Guidepup uses", () => {
   it("opens VoiceOver.app from Darwin 27, where VoiceOverStarter is gone", async () => {
     const { voiceOverLauncher } = await import("../src/live-bridge.js");
-    assert.equal(voiceOverLauncher("27.0.0"), "/System/Library/CoreServices/VoiceOver.app");
-    assert.equal(voiceOverLauncher("28.1.0"), "/System/Library/CoreServices/VoiceOver.app");
+    assert.equal(
+      voiceOverLauncher("27.0.0"),
+      "/System/Library/CoreServices/VoiceOver.app",
+    );
+    assert.equal(
+      voiceOverLauncher("28.1.0"),
+      "/System/Library/CoreServices/VoiceOver.app",
+    );
   });
 
   it("runs VoiceOverStarter before Darwin 27", async () => {
     const { voiceOverLauncher } = await import("../src/live-bridge.js");
-    assert.match(voiceOverLauncher("25.4.0"), /Contents\/MacOS\/VoiceOverStarter$/);
+    assert.match(
+      voiceOverLauncher("25.4.0"),
+      /Contents\/MacOS\/VoiceOverStarter$/,
+    );
   });
 });
 
@@ -331,7 +369,11 @@ describe("preflightLiveMode — check before taking over the machine", () => {
     const r = preflightLiveMode({
       platform: "darwin",
       release: "27.0.0",
-      exists: (p) => (checked.push(p), p === "/System/Library/CoreServices/VoiceOver.app"),
+      exists: (p) => (
+        checked.push(p),
+        p === "/System/Library/CoreServices/VoiceOver.app"
+      ),
+      guidepup: null,
     });
     assert.equal(r.ok, true);
     assert.deepEqual(checked, ["/System/Library/CoreServices/VoiceOver.app"]);
@@ -343,6 +385,7 @@ describe("preflightLiveMode — check before taking over the machine", () => {
       platform: "darwin",
       release: "24.0.0",
       exists: (p) => p.endsWith("/VoiceOverStarter"),
+      guidepup: null,
     });
     assert.equal(r.ok, true);
   });
@@ -356,16 +399,156 @@ describe("preflightLiveMode — check before taking over the machine", () => {
     });
     assert.equal(r.ok, false);
     assert.match(r.reason, /not a permissions problem/i);
-    assert.match(r.reason, /VoiceOver\.app/, "must name the path it looked for");
+    assert.match(
+      r.reason,
+      /VoiceOver\.app/,
+      "must name the path it looked for",
+    );
     assert.match(r.reason, /scan|audit/i, "must say what still works");
   });
 
   it("does not block on platforms this check does not cover", async () => {
     const { preflightLiveMode } = await import("../src/live-bridge.js");
     assert.equal(
-      preflightLiveMode({ platform: "win32", release: "10", exists: () => false }).ok,
+      preflightLiveMode({
+        platform: "win32",
+        release: "10",
+        exists: () => false,
+      }).ok,
       true,
       "NVDA on Windows has nothing to do with a macOS launcher path",
     );
+  });
+});
+
+describe("preflightLiveMode — VoiceOver settings file (Guidepup 0.36+)", () => {
+  // A manifest shaped like the one Guidepup ships. Injected so the test does
+  // not depend on which Guidepup is installed, or on the host's cache.
+  const guidepup = {
+    manifestPath: "/opt/tool/node_modules/@guidepup/guidepup/manifest.json",
+    manifest: {
+      version: 1,
+      screenReaders: [
+        {
+          id: "voiceover",
+          assets: [
+            {
+              version: "0.0.1-VoiceOver4",
+              platformVersion: "25",
+              asset: "prefs-26.dmg",
+            },
+            {
+              version: "0.1.0-VoiceOver4",
+              platformVersion: "27",
+              asset: "prefs-27.dmg",
+            },
+          ],
+        },
+      ],
+    },
+  };
+  const APP = "/System/Library/CoreServices/VoiceOver.app";
+  const PREFS_27 = "/cache/voiceover/27/0.1.0-VoiceOver4/prefs-27.dmg";
+
+  it("refuses with the download command when the file for this macOS is missing", async () => {
+    // The real case: the cache held only the Darwin 25 file, the machine was
+    // on Darwin 27, and Guidepup said "Failed to mount Guidepup preferences",
+    // which the old message sent to automation permissions.
+    const { preflightLiveMode } = await import("../src/live-bridge.js");
+    const r = preflightLiveMode({
+      platform: "darwin",
+      release: "27.2.0",
+      exists: (p) => p === APP,
+      guidepup,
+      cachePath: "/cache",
+    });
+    assert.equal(r.ok, false);
+    assert.match(r.reason, /not a permissions problem/i);
+    assert.ok(r.reason.includes(PREFS_27), "must name the file it looked for");
+    assert.ok(
+      r.reason.includes(
+        'cd "/opt/tool" && npx @guidepup/setup install voiceover',
+      ),
+      "must run install from the folder holding this tool's Guidepup",
+    );
+  });
+
+  it("passes when the file is there", async () => {
+    const { preflightLiveMode } = await import("../src/live-bridge.js");
+    const r = preflightLiveMode({
+      platform: "darwin",
+      release: "27.2.0",
+      exists: (p) => p === APP || p === PREFS_27,
+      guidepup,
+      cachePath: "/cache",
+    });
+    assert.equal(r.ok, true);
+  });
+
+  it("does not block on a release the manifest does not list", async () => {
+    // Guidepup refuses that itself with "not supported"; explainStartFailure
+    // already names it. Guessing a file name here would be a false refusal.
+    const { preflightLiveMode } = await import("../src/live-bridge.js");
+    const r = preflightLiveMode({
+      platform: "darwin",
+      release: "29.0.0",
+      exists: (p) => p === APP,
+      guidepup,
+      cachePath: "/cache",
+    });
+    assert.equal(r.ok, true);
+  });
+
+  it("follows GUIDEPUP_SCREEN_READERS_PATH like Guidepup does", async () => {
+    const { guidepupCachePath } = await import("../src/live-bridge.js");
+    assert.equal(
+      guidepupCachePath({ GUIDEPUP_SCREEN_READERS_PATH: "/x/y" }, "/home/u"),
+      "/x/y",
+    );
+    assert.equal(
+      guidepupCachePath({}, "/Users/u"),
+      "/Users/u/Library/Caches/guidepup",
+    );
+  });
+});
+
+describe("explainStartFailure — preferences mount", () => {
+  it("points at the download, not at automation", async () => {
+    const { explainStartFailure } = await import("../src/live-bridge.js");
+    const err = new Error("VoiceOver cannot be started");
+    err.cause = new Error(
+      "Failed to mount Guidepup preferences\n\nPlease ensure you have run: ...",
+    );
+    const msg = explainStartFailure(err, {
+      platform: "darwin",
+      release: "27.2.0",
+      guidepup: {
+        manifestPath: "/opt/tool/node_modules/@guidepup/guidepup/manifest.json",
+      },
+    });
+    assert.ok(
+      msg.includes('cd "/opt/tool" && npx @guidepup/setup install voiceover'),
+    );
+    assert.doesNotMatch(msg, /automation is permitted/);
+  });
+
+  it("names Full Disk Access when macOS blocks the settings folder", async () => {
+    // Real chain on macOS 27: start -> mount -> EPERM symlink into
+    // ~/Library/Group Containers/group.com.apple.VoiceOver (privacy protection).
+    const { explainStartFailure } = await import("../src/live-bridge.js");
+    const eperm = new Error(
+      "EPERM: operation not permitted, symlink '/Volumes/...' -> '...portable.scrd'",
+    );
+    const mount = new Error("Failed to mount Guidepup preferences", {
+      cause: eperm,
+    });
+    const err = new Error("VoiceOver cannot be started", { cause: mount });
+    const msg = explainStartFailure(err, {
+      platform: "darwin",
+      release: "27.2.0",
+      guidepup: null,
+    });
+    assert.match(msg, /Full Disk Access/);
+    assert.doesNotMatch(msg, /setup install/);
   });
 });
